@@ -331,6 +331,10 @@ check_deps() {{
   if [ "$TAMGA_ARCH" != noarch ]; then
     tamga_m=$(uname -m)
     case "$tamga_m" in armv7*|armv8l) tamga_m=armv7 ;; i?86) tamga_m=i686 ;; esac
+    # Noyau 64 bits avec un système 32 bits (ex. Raspberry Pi OS 32 bits sur Pi 4/5)
+    if [ "$(getconf LONG_BIT 2>/dev/null)" = 32 ]; then
+      case "$tamga_m" in aarch64|arm64) tamga_m=armv7 ;; x86_64) tamga_m=i686 ;; esac
+    fi
     if [ "$tamga_m" != "$TAMGA_ARCH" ]; then
       printf "$M_ARCH\n" "$TAMGA_ARCH" "$tamga_m" >&2
       exit 1
