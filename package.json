@@ -1,0 +1,21 @@
+{
+  "name": "tamga",
+  "version": "0.1.3",
+  "description": "Le sceau qui unit vos paquets Linux",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "keywords": ["linux", "deb", "rpm", "pacman", "converter"],
+  "author": "David HARPUTOGLU",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.0"
+  }
+}

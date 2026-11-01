@@ -1,0 +1,13 @@
+# Dépendances et compilations / dependencies and build outputs
+node_modules/
+core/target/
+src-tauri/target/
+src-tauri/gen/schemas/
+tools/__pycache__/
+
+# Installateurs générés (publiés à part) / generated installers
+dist/
+
+# Divers
+*.log
+.DS_Store
