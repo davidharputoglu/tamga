@@ -3,7 +3,7 @@
 Toutes les modifications notables de TAMGA sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.1.3] - Le moteur de conversion
+## [0.1] - Le moteur de conversion
 
 ### Ajouté
 - Moteur de conversion en Rust pur (`core/`, crate `tamga-core`) : aucun outil externe nécessaire.

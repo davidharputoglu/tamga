@@ -1,6 +1,6 @@
 [package]
 name = "tamga-core"
-version = "0.1.3"
+version = "0.1.0"
 description = "TAMGA — moteur de conversion de paquets Linux (.deb, .rpm, Arch, .sh)"
 authors = ["David HARPUTOGLU"]
 license = "MIT"

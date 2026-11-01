@@ -3,7 +3,7 @@
 #
 # Deux façons de lancer la construction :
 #   1. Onglet « Actions » sur GitHub → « Installateurs TAMGA » → bouton « Run workflow ».
-#   2. Pousser une étiquette de version, par exemple : git tag v0.1.4 && git push origin v0.1.4
+#   2. Pousser une étiquette de version, par exemple : git tag v0.1 && git push origin v0.1
 #
 # Résultat : une « Release » GitHub (page Releases du dépôt) contenant
 #   .deb, .rpm, AppImage, .sh, l'archive du code source et SHA256SUMS.txt
@@ -59,11 +59,18 @@ jobs:
 
       - name: Installateur .sh, code source et empreintes
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          # Version technique (ex. 0.1.0) et version affichée (ex. 0.1)
+          FULL=$(node -p "require('./package.json').version")
+          VERSION="${FULL%.0}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           mkdir -p dist
           B=src-tauri/target/release/bundle
           cp $B/deb/*.deb $B/rpm/*.rpm $B/appimage/*.AppImage dist/
+          # Noms de fichiers avec la version affichée : TAMGA_0.1_amd64.deb…
+          for f in dist/*; do
+            n="${f//$FULL/$VERSION}"
+            [ "$f" = "$n" ] || mv "$f" "$n"
+          done
           # TAMGA fabrique lui-même son installateur .sh à partir du .deb
           ./src-tauri/target/release/tamga convert "dist/TAMGA_${VERSION}_amd64.deb" --to sh \
             --out "dist/tamga-${VERSION}-x86_64.sh"

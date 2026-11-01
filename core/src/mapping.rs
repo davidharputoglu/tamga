@@ -216,7 +216,7 @@ pub const TABLE: &[Row] = &[
     ("libQt6Network.so.6", "libqt6network6", "qt6-qtbase", "libQt6Network6", "qt6-base"),
     ("libQt6DBus.so.6", "libqt6dbus6", "qt6-qtbase", "libQt6DBus6", "qt6-base"),
     ("libQt6Svg.so.6", "libqt6svg6", "qt6-qtsvg", "libQt6Svg6", "qt6-svg"),
-    // --- ajouts 0.1.3 : réseau, annuaire, divers
+    // --- ajouts : réseau, annuaire, divers
     ("libldap.so.2", "libldap2", "openldap", "libldap2", "libldap"),
     ("liblber.so.2", "libldap2", "openldap", "libldap2", "libldap"),
     ("libpsl.so.5", "libpsl5", "libpsl", "libpsl5", "libpsl"),

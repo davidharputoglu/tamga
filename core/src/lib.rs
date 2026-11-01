@@ -33,8 +33,10 @@ pub mod version;
 pub use convert::{analyze, convert, Analysis, ConvertOptions, ConvertResult};
 pub use model::{Dependency, Format, Metadata, Package};
 
-/// Version de TAMGA (synchronisée avec Cargo.toml).
-pub const TAMGA_VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Version affichée de TAMGA, choisie par l'auteur (« 0.1 » jusqu'à nouvel ordre).
+/// Les fichiers techniques (Cargo.toml, package.json, tauri.conf.json) exigent trois
+/// chiffres et portent donc « 0.1.0 ».
+pub const TAMGA_VERSION: &str = "0.1";
 
 /// Identité utilisée par défaut comme mainteneur des paquets convertis.
 pub const DEFAULT_MAINTAINER: &str = "TAMGA <tamga@localhost>";
@@ -47,5 +49,12 @@ mod send_sync {
         fn check<T: Send + Sync>() {}
         check::<crate::model::Package>();
         check::<crate::elf::ElfInfo>();
+    }
+
+    /// La version affichée doit correspondre à celle de Cargo.toml (0.1 ↔ 0.1.0).
+    #[test]
+    fn display_version_matches_cargo() {
+        let cargo = env!("CARGO_PKG_VERSION");
+        assert!(cargo == crate::TAMGA_VERSION || cargo == format!("{}.0", crate::TAMGA_VERSION), "{cargo}");
     }
 }

@@ -60,11 +60,11 @@ Download the installation files from the
 
 | File | For | Command |
 |---|---|---|
-| `TAMGA-0.1.3-1.x86_64.rpm` | Fedora, RHEL, openSUSE | `sudo dnf install ./TAMGA-0.1.3-1.x86_64.rpm` |
-| `TAMGA_0.1.3_amd64.deb` | Debian, Ubuntu, Mint | `sudo apt install ./TAMGA_0.1.3_amd64.deb` |
-| `TAMGA_0.1.3_amd64.AppImage` | all distributions | `chmod +x TAMGA_0.1.3_amd64.AppImage && ./TAMGA_0.1.3_amd64.AppImage` |
-| `tamga-0.1.3-x86_64.sh` | all distributions | `sh tamga-0.1.3-x86_64.sh` |
-| `tamga-0.1.3-source.tar.gz` | source code | see “Build TAMGA” below |
+| `TAMGA-0.1-1.x86_64.rpm` | Fedora, RHEL, openSUSE | `sudo dnf install ./TAMGA-0.1-1.x86_64.rpm` |
+| `TAMGA_0.1_amd64.deb` | Debian, Ubuntu, Mint | `sudo apt install ./TAMGA_0.1_amd64.deb` |
+| `TAMGA_0.1_amd64.AppImage` | all distributions | `chmod +x TAMGA_0.1_amd64.AppImage && ./TAMGA_0.1_amd64.AppImage` |
+| `tamga-0.1-x86_64.sh` | all distributions | `sh tamga-0.1-x86_64.sh` |
+| `tamga-0.1-source.tar.gz` | source code | see “Build TAMGA” below |
 
 The versions published on GitHub need glibc 2.35 or newer
 (Debian 12, Ubuntu 22.04, Linux Mint 21, Fedora 36+, openSUSE, Arch…).
@@ -74,7 +74,7 @@ The versions published on GitHub need glibc 2.35 or newer
 GitHub builds them automatically (file `.github/workflows/installateurs.yml`):
 
 1. **Actions** tab → **Installateurs TAMGA** → **Run workflow** button;
-2. or by pushing a version tag: `git tag v0.1.4 && git push origin v0.1.4`.
+2. or by pushing a version tag: `git tag v0.1 && git push origin v0.1`.
 
 A few minutes later, a new Release appears with the .deb, the .rpm, the AppImage, the .sh
 (made by TAMGA itself from the .deb), the source code archive and `SHA256SUMS.txt`.
@@ -158,11 +158,11 @@ Les fichiers d'installation se téléchargent sur la page
 
 | Fichier | Pour | Commande |
 |---|---|---|
-| `TAMGA-0.1.3-1.x86_64.rpm` | Fedora, RHEL, openSUSE | `sudo dnf install ./TAMGA-0.1.3-1.x86_64.rpm` |
-| `TAMGA_0.1.3_amd64.deb` | Debian, Ubuntu, Mint | `sudo apt install ./TAMGA_0.1.3_amd64.deb` |
-| `TAMGA_0.1.3_amd64.AppImage` | toutes distributions | `chmod +x TAMGA_0.1.3_amd64.AppImage && ./TAMGA_0.1.3_amd64.AppImage` |
-| `tamga-0.1.3-x86_64.sh` | toutes distributions | `sh tamga-0.1.3-x86_64.sh` |
-| `tamga-0.1.3-source.tar.gz` | code source | voir « Compiler TAMGA » ci-dessous |
+| `TAMGA-0.1-1.x86_64.rpm` | Fedora, RHEL, openSUSE | `sudo dnf install ./TAMGA-0.1-1.x86_64.rpm` |
+| `TAMGA_0.1_amd64.deb` | Debian, Ubuntu, Mint | `sudo apt install ./TAMGA_0.1_amd64.deb` |
+| `TAMGA_0.1_amd64.AppImage` | toutes distributions | `chmod +x TAMGA_0.1_amd64.AppImage && ./TAMGA_0.1_amd64.AppImage` |
+| `tamga-0.1-x86_64.sh` | toutes distributions | `sh tamga-0.1-x86_64.sh` |
+| `tamga-0.1-source.tar.gz` | code source | voir « Compiler TAMGA » ci-dessous |
 
 Les versions publiées sur GitHub demandent une glibc 2.35 ou plus récente
 (Debian 12, Ubuntu 22.04, Linux Mint 21, Fedora 36+, openSUSE, Arch…).
@@ -172,7 +172,7 @@ Les versions publiées sur GitHub demandent une glibc 2.35 ou plus récente
 GitHub les fabrique automatiquement (fichier `.github/workflows/installateurs.yml`) :
 
 1. onglet **Actions** → **Installateurs TAMGA** → bouton **Run workflow** ;
-2. ou en poussant une étiquette de version : `git tag v0.1.4 && git push origin v0.1.4`.
+2. ou en poussant une étiquette de version : `git tag v0.1 && git push origin v0.1`.
 
 Quelques minutes plus tard, une nouvelle Release apparaît avec le .deb, le .rpm, l'AppImage,
 le .sh (fabriqué par TAMGA lui-même à partir du .deb), l'archive du code source et
@@ -258,11 +258,11 @@ sayfasından indirilir:
 
 | Dosya | Hangi sistem için | Komut |
 |---|---|---|
-| `TAMGA-0.1.3-1.x86_64.rpm` | Fedora, RHEL, openSUSE | `sudo dnf install ./TAMGA-0.1.3-1.x86_64.rpm` |
-| `TAMGA_0.1.3_amd64.deb` | Debian, Ubuntu, Mint | `sudo apt install ./TAMGA_0.1.3_amd64.deb` |
-| `TAMGA_0.1.3_amd64.AppImage` | tüm dağıtımlar | `chmod +x TAMGA_0.1.3_amd64.AppImage && ./TAMGA_0.1.3_amd64.AppImage` |
-| `tamga-0.1.3-x86_64.sh` | tüm dağıtımlar | `sh tamga-0.1.3-x86_64.sh` |
-| `tamga-0.1.3-source.tar.gz` | kaynak kod | aşağıdaki « TAMGA'yı derleme » bölümüne bakın |
+| `TAMGA-0.1-1.x86_64.rpm` | Fedora, RHEL, openSUSE | `sudo dnf install ./TAMGA-0.1-1.x86_64.rpm` |
+| `TAMGA_0.1_amd64.deb` | Debian, Ubuntu, Mint | `sudo apt install ./TAMGA_0.1_amd64.deb` |
+| `TAMGA_0.1_amd64.AppImage` | tüm dağıtımlar | `chmod +x TAMGA_0.1_amd64.AppImage && ./TAMGA_0.1_amd64.AppImage` |
+| `tamga-0.1-x86_64.sh` | tüm dağıtımlar | `sh tamga-0.1-x86_64.sh` |
+| `tamga-0.1-source.tar.gz` | kaynak kod | aşağıdaki « TAMGA'yı derleme » bölümüne bakın |
 
 GitHub'da yayımlanan sürümler glibc 2.35 veya daha yenisini gerektirir
 (Debian 12, Ubuntu 22.04, Linux Mint 21, Fedora 36+, openSUSE, Arch…).
@@ -272,7 +272,7 @@ GitHub'da yayımlanan sürümler glibc 2.35 veya daha yenisini gerektirir
 GitHub bunları otomatik olarak oluşturur (`.github/workflows/installateurs.yml` dosyası):
 
 1. **Actions** sekmesi → **Installateurs TAMGA** → **Run workflow** düğmesi;
-2. ya da bir sürüm etiketi göndererek: `git tag v0.1.4 && git push origin v0.1.4`.
+2. ya da bir sürüm etiketi göndererek: `git tag v0.1 && git push origin v0.1`.
 
 Birkaç dakika sonra .deb, .rpm, AppImage, .sh (TAMGA'nın kendisi tarafından .deb'den üretilir),
 kaynak kod arşivi ve `SHA256SUMS.txt` dosyasını içeren yeni bir Release yayımlanır.
