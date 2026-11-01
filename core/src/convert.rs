@@ -9,7 +9,8 @@ use crate::fsdirs;
 use crate::model::{Dependency, Family, Format, Metadata, Package};
 use crate::scripts::{self, Integration};
 use crate::tree::{Entry, Tree};
-use crate::{deb, pacman, rpm, shell, version};
+use crate::compress::Codec;
+use crate::{deb, pacman, rpm, shell, slack, slp, svr4, version};
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -22,6 +23,10 @@ pub fn load(path: &Path) -> Result<Package> {
         Detected::Package(Format::Rpm) => rpm::read(path),
         Detected::Package(Format::Arch) => pacman::read(path),
         Detected::Package(Format::Sh) => shell::read(path),
+        Detected::Package(Format::Slack) => slack::read(path, true),
+        Detected::Package(Format::Tar) => slack::read(path, false),
+        Detected::Package(Format::Slp) => slp::read(path),
+        Detected::Package(Format::Solaris) => svr4::read(path),
         Detected::ForeignScript => bail!("err.foreign_script"),
         Detected::SourceRpm => bail!("err.source_rpm"),
         Detected::AppImage => bail!("err.appimage"),
@@ -53,9 +58,15 @@ pub struct Analysis {
 }
 
 pub fn analyze(pkg: &Package, path: &Path) -> (Analysis, ElfInfo) {
-    let elf = elf::scan(&pkg.tree);
+    let mut elf = elf::scan(&pkg.tree);
+    if pkg.format == Format::Solaris {
+        // Bibliothèques Solaris : sans équivalent sous Linux.
+        elf.needed.clear();
+        elf.glibc = None;
+        elf.glibcxx = None;
+    }
     let mut warnings = pkg.warnings.clone();
-    if let (Some(m), false) = (&elf.machine, pkg.meta.arch == "noarch") {
+    if let (Some(m), false) = (&elf.machine, pkg.meta.arch == "noarch" || pkg.format == Format::Solaris) {
         if *m != pkg.meta.arch {
             warnings.push("warn.arch_mismatch".into());
         }
@@ -119,6 +130,9 @@ pub struct ConvertOptions {
     pub online: bool,
     /// Fichier de sortie, ou dossier (le nom est alors choisi automatiquement).
     pub output: PathBuf,
+    /// Compression des archives tar et Slackware : gz, xz, bz2, zst, none.
+    #[serde(default)]
+    pub compression: Option<String>,
 }
 
 fn yes() -> bool {
@@ -151,13 +165,41 @@ fn apply_override(meta: &mut Metadata, o: &MetaOverride) {
     set(&mut meta.url, &o.url);
 }
 
+/// Compression utilisée par défaut pour les formats à base de tar.
+pub fn default_codec(format: Format) -> Codec {
+    match format {
+        Format::Slack => Codec::Xz,
+        Format::Slp => Codec::Bzip2,
+        _ => Codec::Gzip,
+    }
+}
+
+/// Compression choisie (ou par défaut), limitée à ce que le format accepte.
+pub fn codec_for(format: Format, choice: Option<&str>) -> Codec {
+    let c = choice.and_then(Codec::parse).unwrap_or_else(|| default_codec(format));
+    match format {
+        Format::Slack if matches!(c, Codec::Gzip | Codec::Xz | Codec::Bzip2) => c,
+        Format::Slack => Codec::Xz,
+        Format::Tar if c.writable() => c,
+        Format::Tar => Codec::Gzip,
+        _ => default_codec(format),
+    }
+}
+
+fn no_epoch(v: String) -> String {
+    v.split_once(':').map(|(_, r)| r.to_string()).unwrap_or(v)
+}
+
 /// Nom de fichier conseillé pour la cible.
 pub fn default_file_name(meta: &Metadata, format: Format) -> String {
+    default_file_name_with(meta, format, None)
+}
+
+pub fn default_file_name_with(meta: &Metadata, format: Format, compression: Option<&str>) -> String {
     match format {
         Format::Deb => {
-            let full = version::deb_version(meta);
-            let no_epoch = full.split_once(':').map(|(_, r)| r.to_string()).unwrap_or(full);
-            format!("{}_{}_{}.deb", version::deb_name(&meta.name), no_epoch, version::deb_arch(&meta.arch))
+            let v = no_epoch(version::deb_version(meta));
+            format!("{}_{}_{}.deb", version::deb_name(&meta.name), v, version::deb_arch(&meta.arch))
         }
         Format::Rpm => {
             let (v, r) = version::rpm_version(meta);
@@ -169,10 +211,22 @@ pub fn default_file_name(meta: &Metadata, format: Format) -> String {
             format!("{}-{}{}-{}-{}.pkg.tar.zst", version::pacman_name(&meta.name), e, v, r, version::pacman_arch(&meta.arch))
         }
         Format::Sh => {
-            let full = version::deb_version(meta);
-            let no_epoch = full.split_once(':').map(|(_, r)| r.to_string()).unwrap_or(full);
-            format!("{}-{}-{}.sh", version::deb_name(&meta.name), no_epoch, version::canonical_arch(&meta.arch))
+            let v = no_epoch(version::deb_version(meta));
+            format!("{}-{}-{}.sh", version::deb_name(&meta.name), v, version::canonical_arch(&meta.arch))
         }
+        Format::Slack => {
+            // nom-version-arch-build : le « - » sépare les champs, il est interdit dans la version.
+            let (v, r) = version::pacman_version(meta);
+            let codec = codec_for(format, compression);
+            format!("{}-{}-{}-{}{}", version::pacman_name(&meta.name), v, slack::slack_arch(&meta.arch), r, slack::slack_ext(codec))
+        }
+        Format::Tar => {
+            let v = no_epoch(version::deb_version(meta));
+            let codec = codec_for(format, compression);
+            format!("{}-{}-{}{}", version::deb_name(&meta.name), v, version::canonical_arch(&meta.arch), slack::tar_ext(codec))
+        }
+        Format::Slp => format!("{}-{}.slp", version::deb_name(&meta.name), meta.version.replace(' ', "_")),
+        Format::Solaris => format!("{}-{}.pkg", meta.name, meta.version),
     }
 }
 
@@ -184,6 +238,10 @@ pub fn install_command(format: Format, fam: Family, file: &str) -> String {
         Format::Rpm => format!("sudo dnf install {f}"),
         Format::Arch => format!("sudo pacman -U {f}"),
         Format::Sh => format!("sh {f}"),
+        Format::Slack => format!("sudo upgradepkg --install-new {f}"),
+        Format::Tar => format!("sudo tar -xpf {f} -C /"),
+        Format::Slp => format!("sudo slpi {f}"),
+        Format::Solaris => format!("pkgadd -d {f}"),
     }
 }
 
@@ -222,7 +280,7 @@ pub fn convert(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &System
     }
 
     // Bibliothèques rangées hors des dossiers connus de la cible → ld.so.conf.d
-    let lib_dirs = if opts.format == Format::Sh {
+    let lib_dirs = if opts.format.is_generic() {
         let mut all = Vec::new();
         for f in [Family::Debian, Family::Fedora, Family::Arch] {
             for d in fsdirs::extra_lib_dirs(&tree, f, &meta.arch) {
@@ -258,7 +316,17 @@ pub fn convert(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &System
     let same_family = meta.dep_family.map(|f| f == fam).unwrap_or(false);
 
     // Fichier de sortie
-    let out = if opts.output.is_dir() { opts.output.join(default_file_name(&meta, opts.format)) } else { opts.output.clone() };
+    let compression = opts.compression.as_deref();
+    // « dossier/ » qui n'existe pas encore : on le crée.
+    let as_text = opts.output.to_string_lossy();
+    if (as_text.ends_with('/') || as_text.ends_with('\\')) && !opts.output.exists() {
+        std::fs::create_dir_all(&opts.output)?;
+    }
+    let out = if opts.output.is_dir() {
+        opts.output.join(default_file_name_with(&meta, opts.format, compression))
+    } else {
+        opts.output.clone()
+    };
     if let Some(parent) = out.parent() {
         if !parent.as_os_str().is_empty() && !parent.exists() {
             std::fs::create_dir_all(parent)?;
@@ -315,6 +383,25 @@ pub fn convert(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &System
             // Le .sh garde les dépendances d'origine dans ses métadonnées (pour une reconversion).
             shell::write(&meta, &tree, &o, &out)?;
         }
+        Format::Slack => {
+            let (v, r) = version::pacman_version(&meta);
+            let (links, configs) = slack::slack_layout(&tree);
+            let doinst = scripts::for_slack(&meta.scripts, opts.include_scripts, &format!("{v}-{r}"), &integ, &links, &configs);
+            slack::write_slack(&meta, &tree, codec_for(Format::Slack, compression), doinst.as_deref(), &out)?;
+        }
+        Format::Tar => {
+            slack::write_tar(&tree, codec_for(Format::Tar, compression), &out)?;
+            warnings.push("warn.tar_no_uninstall".into());
+            if opts.include_scripts && !meta.scripts.is_empty() {
+                warnings.push("warn.tar_no_scripts".into());
+            }
+        }
+        Format::Slp => {
+            if slp::write(&meta, &tree, &out)? {
+                warnings.push("warn.slp_arch".into());
+            }
+        }
+        Format::Solaris => bail!("err.solaris_write"),
     }
     let size = std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0);
     let file_name = out.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
@@ -368,5 +455,10 @@ mod tests {
         assert_eq!(default_file_name(&m, Format::Rpm), "My-App-1.2-3.x86_64.rpm");
         assert_eq!(default_file_name(&m, Format::Arch), "my-app-2:1.2-3-x86_64.pkg.tar.zst");
         assert_eq!(default_file_name(&m, Format::Sh), "my-app-1.2-3-x86_64.sh");
+        assert_eq!(default_file_name(&m, Format::Slack), "my-app-1.2-x86_64-3.txz");
+        assert_eq!(default_file_name_with(&m, Format::Slack, Some("gz")), "my-app-1.2-x86_64-3.tgz");
+        assert_eq!(default_file_name(&m, Format::Tar), "my-app-1.2-3-x86_64.tar.gz");
+        assert_eq!(default_file_name_with(&m, Format::Tar, Some("zst")), "my-app-1.2-3-x86_64.tar.zst");
+        assert_eq!(default_file_name(&m, Format::Slp), "my-app-1.2.slp");
     }
 }

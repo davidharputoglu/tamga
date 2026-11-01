@@ -20,7 +20,7 @@ pub enum Detected {
     SourceRpm,
     /// AppImage (non pris en charge).
     AppImage,
-    /// Archive simple (.tar.*, .zip, .rar) sans métadonnées de paquet.
+    /// Archive .zip ou .rar (pas un paquet Linux).
     Archive,
     /// Format inconnu.
     Unknown,
@@ -41,20 +41,44 @@ fn read_head(path: &Path, n: usize) -> std::io::Result<Vec<u8>> {
     Ok(buf)
 }
 
-/// Le premier élément d'une archive tar compressée est-il .PKGINFO ?
-fn tar_has_pkginfo(path: &Path) -> bool {
-    let Ok(f) = File::open(path) else { return false };
-    let Ok(dec) = compress::auto_decoder(BufReader::new(f)) else { return false };
+/// Ce que contient une archive tar (compressée ou non).
+#[derive(Default)]
+struct TarScan {
+    is_tar: bool,
+    pkginfo: bool,
+    slack: bool,
+}
+
+fn scan_tar(path: &Path) -> TarScan {
+    let mut s = TarScan::default();
+    let Ok(f) = File::open(path) else { return s };
+    let Ok(dec) = compress::auto_decoder(BufReader::new(f)) else { return s };
     let mut ar = tar::Archive::new(dec);
-    let Ok(entries) = ar.entries() else { return false };
-    for e in entries.take(400) {
-        let Ok(e) = e else { return false };
+    let Ok(entries) = ar.entries() else { return s };
+    for e in entries.take(3000) {
+        let Ok(e) = e else { break };
+        s.is_tar = true;
         let p = String::from_utf8_lossy(&e.path_bytes()).to_string();
-        if p.trim_start_matches("./") == ".PKGINFO" {
-            return true;
+        let p = p.trim_start_matches("./");
+        if p == ".PKGINFO" {
+            s.pkginfo = true;
+            break;
+        }
+        if p == "install/slack-desc" || p == "install/doinst.sh" {
+            s.slack = true;
+            break;
         }
     }
-    false
+    s
+}
+
+/// Décompresse le début d'un fichier (pour reconnaître un paquet Solaris .pkg.gz…).
+fn decompressed_head(path: &Path, n: usize) -> Vec<u8> {
+    let Ok(f) = File::open(path) else { return vec![] };
+    let Ok(dec) = compress::auto_decoder(BufReader::new(f)) else { return vec![] };
+    let mut buf = Vec::new();
+    let _ = dec.take(n as u64).read_to_end(&mut buf);
+    buf
 }
 
 pub fn detect(path: &Path) -> Detected {
@@ -69,6 +93,9 @@ pub fn detect(path: &Path) -> Detected {
         }
         return Detected::Package(Format::Rpm);
     }
+    if crate::svr4::is_datastream(&head) {
+        return Detected::Package(Format::Solaris);
+    }
     if head.starts_with(b"\x7fELF") {
         if head.len() > 10 && &head[8..10] == b"AI" {
             return Detected::AppImage;
@@ -81,23 +108,42 @@ pub fn detect(path: &Path) -> Detected {
         }
         return Detected::ForeignScript;
     }
-    let arch_name = name.ends_with(".pacman") || name.contains(".pkg.tar");
-    match Codec::sniff(&head) {
-        Codec::None => {}
-        _ if arch_name => return Detected::Package(Format::Arch),
-        _ => {
-            if tar_has_pkginfo(path) {
-                return Detected::Package(Format::Arch);
-            }
-            return Detected::Archive;
-        }
+    // Stampede : archive bzip2/gzip suivie d'un bloc d'informations.
+    if name.ends_with(".slp") && crate::slp::looks_like_slp(path) {
+        return Detected::Package(Format::Slp);
     }
-    // tar non compressé : « ustar » à l'octet 257
-    if head.len() > 262 && &head[257..262] == b"ustar" {
-        if tar_has_pkginfo(path) {
+    let compressed = Codec::sniff(&head) != Codec::None;
+    let plain_tar = head.len() > 262 && &head[257..262] == b"ustar";
+    if compressed || plain_tar {
+        if compressed && crate::svr4::is_datastream(&decompressed_head(path, 64)) {
+            return Detected::Package(Format::Solaris);
+        }
+        if name.ends_with(".pacman") || name.contains(".pkg.tar") {
             return Detected::Package(Format::Arch);
         }
-        return Detected::Archive;
+        let scan = scan_tar(path);
+        if scan.pkginfo {
+            return Detected::Package(Format::Arch);
+        }
+        if scan.slack {
+            return Detected::Package(Format::Slack);
+        }
+        if scan.is_tar {
+            let base = crate::slack::strip_tar_ext(&name);
+            let slack_ext = crate::slack::SLACK_EXTS.iter().any(|e| name.ends_with(e));
+            if slack_ext && crate::slack::parse_slack_name(base).is_some() {
+                return Detected::Package(Format::Slack);
+            }
+            return Detected::Package(Format::Tar);
+        }
+        if name.ends_with(".zip") || name.ends_with(".rar") {
+            return Detected::Archive;
+        }
+        return Detected::Unknown;
+    }
+    // Vieux tar sans signature « ustar » (format v7) : on essaie de le lire.
+    if crate::slack::TAR_EXTS.iter().any(|e| name.ends_with(e)) && scan_tar(path).is_tar {
+        return Detected::Package(Format::Tar);
     }
     if head.starts_with(b"PK\x03\x04") || head.starts_with(b"Rar!") || name.ends_with(".zip") || name.ends_with(".rar") {
         return Detected::Archive;

@@ -56,7 +56,7 @@
         </svg>
         <p class="drop-title" data-i18n="dropzone.hint">Glissez votre paquet ici</p>
         <p class="drop-sub" data-i18n="dropzone.click">ou cliquez pour choisir un fichier</p>
-        <p class="drop-formats">.deb · .rpm · .pkg.tar.zst · .sh</p>
+        <p class="drop-formats">.deb · .rpm · .pkg.tar.zst · .sh · Slackware .txz/.tgz · .tar.* · .slp · Solaris .pkg</p>
       </div>
       <p class="version"><span data-i18n="app.version">version</span> <span class="app-version">0.1</span></p>
     </section>
@@ -68,6 +68,7 @@
         <p class="busy-title" id="busy-title"></p>
         <p class="muted" id="busy-file"></p>
         <p class="muted small"><span data-i18n="busy.wait"></span> <span id="busy-time"></span></p>
+        <pre class="install-log" id="busy-log" hidden></pre>
       </div>
     </section>
 
@@ -102,6 +103,10 @@
         <label class="field">
           <span data-i18n="target.distro">Distribution cible</span>
           <select id="distro"></select>
+        </label>
+        <label class="field" id="compression-row" hidden>
+          <span data-i18n="target.compression">Compression</span>
+          <select id="compression"></select>
         </label>
         <details class="options">
           <summary data-i18n="opt.title">Options</summary>
@@ -172,6 +177,7 @@
       </div>
       <div class="actions" id="deps-actions">
         <button class="btn ghost" id="btn-deps-back" data-i18n="action.back">Retour</button>
+        <button class="btn ghost" id="btn-convert-install" data-i18n="action.convert_install" hidden>Convertir et installer</button>
         <button class="btn primary" id="btn-convert" data-i18n="action.convert">Convertir</button>
       </div>
     </section>
@@ -189,6 +195,11 @@
           <code id="result-cmd"></code>
           <button class="btn small" id="btn-copy" data-i18n="action.copy">Copier</button>
         </div>
+        <p class="install-status" id="install-status" hidden></p>
+        <details class="files-box" id="install-log-box" hidden>
+          <summary data-i18n="install.log">Journal de l'installation</summary>
+          <pre class="install-log" id="install-log"></pre>
+        </details>
         <div class="notes" id="result-warnings" hidden></div>
         <details class="files-box" id="result-deps-box">
           <summary data-i18n="result.deps">Dépendances incluses</summary>
@@ -197,6 +208,7 @@
         <div class="actions">
           <button class="btn ghost" id="btn-open-folder" data-i18n="action.open_folder">Ouvrir le dossier</button>
           <button class="btn ghost" id="btn-other-format" data-i18n="action.other_format">Autre format</button>
+          <button class="btn primary" id="btn-install" data-i18n="action.install" hidden>Installer</button>
           <button class="btn primary" data-action="home" data-i18n="action.another">Convertir un autre paquet</button>
         </div>
       </div>

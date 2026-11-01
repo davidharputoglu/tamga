@@ -95,17 +95,14 @@ impl TargetDistro {
         match self {
             TargetDistro::ThisSystem => match (format, sys.family) {
                 (Format::Rpm, Some(Family::Suse)) => Family::Suse,
-                (Format::Sh, Some(f)) => f,
+                (f, Some(fam)) if f.is_generic() => fam,
                 _ => format.family(),
             },
             TargetDistro::Debian => Family::Debian,
             TargetDistro::Fedora => Family::Fedora,
             TargetDistro::Suse => Family::Suse,
             TargetDistro::Arch => Family::Arch,
-            TargetDistro::Any => match format {
-                Format::Sh => Family::Generic,
-                f => f.family(),
-            },
+            TargetDistro::Any => format.family(),
         }
     }
 }
@@ -145,7 +142,7 @@ fn portable(dep: &Dependency, new_name: &str) -> Dependency {
 pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem> {
     let fam = ctx.distro.family(ctx.format, ctx.sys);
     let local = local_checks(ctx, fam);
-    let ld = if local || ctx.format == Format::Sh { LdCache::load() } else { LdCache::default() };
+    let ld = if local || ctx.format.is_generic() { LdCache::load() } else { LdCache::default() };
     let mut online = if ctx.online { Some(Repology::new()) } else { None };
     let mut items: Vec<DepItem> = Vec::new();
 
@@ -196,8 +193,8 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
                     });
                 }
             }
-            Format::Sh => {
-                // Vérifiée par l'installateur lui-même sur la machine cible.
+            Format::Sh | Format::Slack | Format::Tar | Format::Slp | Format::Solaris => {
+                // Vérifiée sur la machine cible (par l'installateur .sh) ou par l'utilisateur.
                 item.method = "soname".into();
                 item.target = Some(Dependency::simple(soname));
                 item.detail = mapping::hint_line(soname);
@@ -315,7 +312,7 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
         // Bibliothèque rpm « libfoo.so.1()(64bit) » : déjà couverte par l'analyse ELF.
         if name.contains(".so") && (name.contains("()") || name.ends_with(')') || !name.contains(' ')) && name.starts_with("lib") {
             let so = name.split('(').next().unwrap_or(name);
-            if elf.needed.contains_key(so) || elf.provided.contains(so) || ctx.format == Format::Sh {
+            if elf.needed.contains_key(so) || elf.provided.contains(so) || ctx.format.is_generic() {
                 item.status = Status::Skipped;
                 item.keep = false;
                 item.method = "soname".into();
@@ -374,7 +371,7 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
         } else if let Some(t) = dep.alternatives.iter().find_map(|a| mapping::translate(&a.name, from, fam)) {
             item.target = Some(Dependency::simple(t));
             item.method = "table".into();
-        } else if ctx.format == Format::Sh {
+        } else if ctx.format.is_generic() {
             // L'installateur .sh ne gère que les bibliothèques ; on garde l'information.
             item.status = Status::Skipped;
             item.keep = false;

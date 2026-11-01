@@ -31,18 +31,25 @@
 
 ## 🇬🇧 English
 
-Smart Linux package converter: **.deb ↔ .rpm ↔ Arch (.pkg) ↔ .sh**, with dependency
-translation for each distribution.
+Smart Linux package converter, like Alien but with a graphical interface: **.deb ↔ .rpm ↔ Arch ↔ .sh ↔ Slackware ↔ tar ↔ .slp**
+(+ Solaris .pkg as input), with dependency translation for each distribution.
 
 ### What TAMGA does
 
-| From ↓ / To → | .deb | .rpm | Arch (.pkg.tar.zst) | .sh |
-|---|:---:|:---:|:---:|:---:|
-| **.deb** (Debian, Ubuntu, Mint…) | — | ✅ | ✅ | ✅ |
-| **.rpm** (Fedora, RHEL, openSUSE…) | ✅ | — | ✅ | ✅ |
-| **Arch** (.pkg.tar.zst, .pacman) | ✅ | ✅ | — | ✅ |
-| **.sh** made by TAMGA | ✅ | ✅ | ✅ | — |
+| From ↓ / To → | .deb | .rpm | Arch | .sh | Slackware | tar | .slp |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **.deb** (Debian, Ubuntu, Mint…) | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **.rpm** (Fedora, RHEL, openSUSE…) | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Arch** (.pkg.tar.zst, .pacman) | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ |
+| **.sh** made by TAMGA | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ |
+| **Slackware** (.txz, .tgz, .tbz, .tlz) | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **tar archives** (.tar, .tar.gz, .tar.xz, .tar.bz2, .tar.zst, .tar.lz, .tar.lzma, .tar.Z, .tar.lz4) | ✅ | ✅ | ✅ | ✅ | ✅ | — | ✅ |
+| **Stampede** (.slp) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| **Solaris** (.pkg, .pkg.gz) — read only | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
+- **Install directly**, like AlienGUI: after converting, the **Install** button installs the package
+  with the system's package manager (apt, dnf, zypper, pacman, Slackware's upgradepkg), asking for
+  the administrator password.
 - **Faithful conversion**: permissions, owners, symbolic links and configuration files are preserved.
 - **Dependencies translated** for the target distribution: TAMGA reads the libraries the programs
   really use (ELF analysis), asks the local system (is the package installed? available in the
@@ -51,7 +58,7 @@ translation for each distribution.
   install command (apt, dnf, zypper, pacman), backs up replaced files and provides an uninstaller.
 - **Original install scripts** adapted to the target format (advanced option, off by default).
 - **100% Rust engine**: no need for dpkg, rpmbuild or makepkg to convert.
-- **Command-line mode**: `tamga convert package.deb --to rpm` (see `tamga --help-cli`).
+- **Command-line mode**: `tamga convert package.deb --to rpm [--install]` (see `tamga --help-cli`).
 
 ### Install TAMGA
 
@@ -114,7 +121,9 @@ Engine tests: `cd core && cargo test`.
 
 ```
 core/          conversion engine (Rust, no interface) + tamga-cli tool
-  src/deb.rs, rpm.rs, pacman.rs, shell.rs   reading/writing each format
+  src/deb.rs, rpm.rs, pacman.rs, shell.rs,
+  slack.rs, slp.rs, svr4.rs                 reading/writing each format
+  src/install.rs                            direct installation
   src/deps.rs, mapping.rs, distro.rs        dependency translation
 src-tauri/     desktop application (bridge between the interface and the engine)
 src/           interface (HTML, CSS, JavaScript) and translations (locales/)
@@ -132,18 +141,26 @@ Privacy: [PRIVACY.md](PRIVACY.md) (these two documents are in French).
 
 ## 🇫🇷 Français
 
-Convertisseur intelligent de paquets Linux : **.deb ↔ .rpm ↔ Arch (.pkg) ↔ .sh**, avec
-traduction des dépendances pour chaque distribution.
+Convertisseur intelligent de paquets Linux, comme Alien mais avec une interface graphique :
+**.deb ↔ .rpm ↔ Arch ↔ .sh ↔ Slackware ↔ tar ↔ .slp** (+ Solaris .pkg en entrée), avec traduction des
+dépendances pour chaque distribution.
 
 ### Ce que fait TAMGA
 
-| De ↓ / vers → | .deb | .rpm | Arch (.pkg.tar.zst) | .sh |
-|---|:---:|:---:|:---:|:---:|
-| **.deb** (Debian, Ubuntu, Mint…) | — | ✅ | ✅ | ✅ |
-| **.rpm** (Fedora, RHEL, openSUSE…) | ✅ | — | ✅ | ✅ |
-| **Arch** (.pkg.tar.zst, .pacman) | ✅ | ✅ | — | ✅ |
-| **.sh** créé par TAMGA | ✅ | ✅ | ✅ | — |
+| De ↓ / vers → | .deb | .rpm | Arch | .sh | Slackware | tar | .slp |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **.deb** (Debian, Ubuntu, Mint…) | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **.rpm** (Fedora, RHEL, openSUSE…) | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Arch** (.pkg.tar.zst, .pacman) | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ |
+| **.sh** créé par TAMGA | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ |
+| **Slackware** (.txz, .tgz, .tbz, .tlz) | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **archives tar** (.tar, .tar.gz, .tar.xz, .tar.bz2, .tar.zst, .tar.lz, .tar.lzma, .tar.Z, .tar.lz4) | ✅ | ✅ | ✅ | ✅ | ✅ | — | ✅ |
+| **Stampede** (.slp) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| **Solaris** (.pkg, .pkg.gz) — lecture seule | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
+- **Installation directe**, comme AlienGUI : après la conversion, le bouton **Installer** installe le
+  paquet avec le gestionnaire du système (apt, dnf, zypper, pacman, upgradepkg de Slackware) en
+  demandant le mot de passe administrateur.
 - **Conversion fidèle** : droits, propriétaires, liens symboliques et fichiers de configuration sont conservés.
 - **Dépendances traduites** pour la distribution cible : TAMGA lit les bibliothèques réellement
   utilisées par les programmes (analyse ELF), interroge le système local (paquet installé ?
@@ -153,7 +170,7 @@ traduction des dépendances pour chaque distribution.
   remplacés et fournit un désinstallateur.
 - **Scripts d'installation** d'origine adaptés au format cible (option avancée, désactivée par défaut).
 - **Moteur 100 % Rust** : aucun besoin de dpkg, rpmbuild ou makepkg pour convertir.
-- **Mode texte** : `tamga convert paquet.deb --to rpm` (voir `tamga --help-cli`).
+- **Mode texte** : `tamga convert paquet.deb --to rpm [--install]` (voir `tamga --help-cli`).
 
 ### Installer TAMGA
 
@@ -217,7 +234,9 @@ Tests du moteur : `cd core && cargo test`.
 
 ```
 core/          moteur de conversion (Rust, sans interface) + outil tamga-cli
-  src/deb.rs, rpm.rs, pacman.rs, shell.rs   lecture/écriture de chaque format
+  src/deb.rs, rpm.rs, pacman.rs, shell.rs,
+  slack.rs, slp.rs, svr4.rs                 lecture/écriture de chaque format
+  src/install.rs                            installation directe
   src/deps.rs, mapping.rs, distro.rs        traduction des dépendances
 src-tauri/     application de bureau (pont entre l'interface et le moteur)
 src/           interface (HTML, CSS, JavaScript) et traductions (locales/)
@@ -235,18 +254,26 @@ Confidentialité : [PRIVACY.md](PRIVACY.md).
 
 ## 🇹🇷 Türkçe
 
-Akıllı Linux paket dönüştürücü: **.deb ↔ .rpm ↔ Arch (.pkg) ↔ .sh**, her dağıtım için
+Alien gibi ama grafik arayüzlü akıllı Linux paket dönüştürücü:
+**.deb ↔ .rpm ↔ Arch ↔ .sh ↔ Slackware ↔ tar ↔ .slp** (+ girdi olarak Solaris .pkg), her dağıtım için
 bağımlılık çevirisiyle.
 
 ### TAMGA ne yapar?
 
-| Kaynak ↓ / Hedef → | .deb | .rpm | Arch (.pkg.tar.zst) | .sh |
-|---|:---:|:---:|:---:|:---:|
-| **.deb** (Debian, Ubuntu, Mint…) | — | ✅ | ✅ | ✅ |
-| **.rpm** (Fedora, RHEL, openSUSE…) | ✅ | — | ✅ | ✅ |
-| **Arch** (.pkg.tar.zst, .pacman) | ✅ | ✅ | — | ✅ |
-| TAMGA ile oluşturulmuş **.sh** | ✅ | ✅ | ✅ | — |
+| Kaynak ↓ / Hedef → | .deb | .rpm | Arch | .sh | Slackware | tar | .slp |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **.deb** (Debian, Ubuntu, Mint…) | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **.rpm** (Fedora, RHEL, openSUSE…) | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Arch** (.pkg.tar.zst, .pacman) | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ |
+| TAMGA ile oluşturulmuş **.sh** | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ |
+| **Slackware** (.txz, .tgz, .tbz, .tlz) | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| **tar arşivleri** (.tar, .tar.gz, .tar.xz, .tar.bz2, .tar.zst, .tar.lz, .tar.lzma, .tar.Z, .tar.lz4) | ✅ | ✅ | ✅ | ✅ | ✅ | — | ✅ |
+| **Stampede** (.slp) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| **Solaris** (.pkg, .pkg.gz) — yalnızca okuma | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
+- **Doğrudan kurulum**, AlienGUI gibi: dönüştürmeden sonra **Kur** düğmesi paketi sistemin paket
+  yöneticisiyle (apt, dnf, zypper, pacman, Slackware'in upgradepkg aracı) yönetici parolasını
+  sorarak kurar.
 - **Aslına uygun dönüştürme**: izinler, dosya sahipleri, sembolik bağlantılar ve yapılandırma
   dosyaları korunur.
 - **Hedef dağıtıma göre çevrilen bağımlılıklar**: TAMGA, programların gerçekten kullandığı
@@ -257,7 +284,7 @@ bağımlılık çevirisiyle.
   kaldırma aracı sunar.
 - **Orijinal kurulum betikleri** hedef biçime uyarlanır (gelişmiş seçenek, varsayılan olarak kapalı).
 - **%100 Rust motoru**: dönüştürmek için dpkg, rpmbuild veya makepkg gerekmez.
-- **Komut satırı modu**: `tamga convert paket.deb --to rpm` (bkz. `tamga --help-cli`).
+- **Komut satırı modu**: `tamga convert paket.deb --to rpm [--install]` (bkz. `tamga --help-cli`).
 
 ### TAMGA'yı kurun
 
@@ -320,7 +347,9 @@ Motor testleri: `cd core && cargo test`.
 
 ```
 core/          dönüştürme motoru (Rust, arayüzsüz) + tamga-cli aracı
-  src/deb.rs, rpm.rs, pacman.rs, shell.rs   her biçimin okunması/yazılması
+  src/deb.rs, rpm.rs, pacman.rs, shell.rs,
+  slack.rs, slp.rs, svr4.rs                 her biçimin okunması/yazılması
+  src/install.rs                            doğrudan kurulum
   src/deps.rs, mapping.rs, distro.rs        bağımlılık çevirisi
 src-tauri/     masaüstü uygulaması (arayüz ile motor arasındaki köprü)
 src/           arayüz (HTML, CSS, JavaScript) ve çeviriler (locales/)

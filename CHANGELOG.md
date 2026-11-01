@@ -25,6 +25,14 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/).
 - Installateurs de TAMGA : .deb, .rpm, AppImage, .sh et archive du code source.
 - Construction automatique des installateurs par GitHub Actions, publiés sur la page Releases.
 - Installateurs pour les processeurs ARM : aarch64/arm64 (64 bits) et armhf (32 bits, sans AppImage).
+- Nouveaux formats, comme Alien : paquets **Slackware** (.txz, .tgz, .tbz, .tlz), **archives tar**
+  (.tar, .tar.gz, .tar.xz, .tar.bz2, .tar.zst, .tar.lz, .tar.lzma, .tar.Z, .tar.lz4) et **Stampede** (.slp),
+  en lecture et en écriture ; paquets **Solaris** (.pkg, .pkg.gz) en lecture.
+- Slackware : slack-desc, doinst.sh, liens symboliques et fichiers de configuration « .new » gérés comme makepkg.
+- Archives tar sans structure de paquet : rangées dans /opt/<nom> avec des raccourcis dans /usr/bin.
+- Bouton **Installer** et **Convertir et installer** (comme AlienGUI) : installation avec apt, dnf, zypper,
+  pacman ou upgradepkg, mot de passe demandé par pkexec. En mode texte : `--install`.
+- Choix de la compression des archives tar et Slackware (`--compress` en mode texte).
 
 ### Corrigé
 - Le clic sur la zone de dépôt ouvre la vraie fenêtre de choix de fichier (module dialog).

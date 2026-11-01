@@ -5,7 +5,11 @@ const FORMATS = [
   { family: "arch",     ext: [".pkg.tar.zst", ".pkg.tar.xz", ".pkg.tar.gz", ".pkg.tar", ".pacman"] },
   { family: "deb",      ext: [".deb"] },
   { family: "rpm",      ext: [".rpm"] },
-  { family: "sh",       ext: [".sh", ".run"] }
+  { family: "sh",       ext: [".sh", ".run"] },
+  { family: "slack",    ext: [".txz", ".tgz", ".tbz", ".tlz"] },
+  { family: "tar",      ext: [".tar", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst", ".tar.lz", ".tar.lzma", ".tar.z", ".tar.lz4", ".tbz2", ".tzst", ".taz"] },
+  { family: "slp",      ext: [".slp"] },
+  { family: "solaris",  ext: [".pkg", ".pkg.gz", ".pkg.bz2"] }
 ];
 
 function detectFamily(name) {
@@ -45,7 +49,7 @@ function initDropzone(onFile) {
           multiple: false,
           directory: false,
           filters: [
-            { name: t("dialog.packages"), extensions: ["deb", "rpm", "zst", "xz", "gz", "pacman", "sh", "run"] },
+            { name: t("dialog.packages"), extensions: ["deb", "rpm", "zst", "xz", "gz", "bz2", "lz", "lzma", "lz4", "Z", "tar", "tgz", "txz", "tbz", "tbz2", "tlz", "tzst", "taz", "pacman", "pkg", "slp", "sh", "run"] },
             { name: t("dialog.all_files"), extensions: ["*"] }
           ]
         });

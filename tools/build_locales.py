@@ -4,7 +4,14 @@ sys.path.insert(0, os.path.dirname(__file__))
 from locales_fr_en import FR, EN
 from locales_tr_ar import TR, AR
 from locales_it_pt_es import IT, PT, ES
+from locales_extra import EXTRA
 ALL = {"fr": FR, "en": EN, "tr": TR, "ar": AR, "it": IT, "pt": PT, "es": ES}
+# Textes ajoutés ensuite (Slackware, tar, .slp, Solaris, installation) : ils complètent
+# ou remplacent les textes de base.
+for code, extra in EXTRA.items():
+    ALL[code] = {**ALL[code], **extra}
+FR = ALL["fr"]
+EN = ALL["en"]
 keys = list(FR.keys())
 out_dir = sys.argv[1]
 existing_dir = sys.argv[2] if len(sys.argv) > 2 else None

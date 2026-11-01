@@ -13,10 +13,15 @@ TAMGA — convertisseur de paquets Linux / Linux package converter
 
 Utilisation / Usage:
   tamga analyze <paquet> [--json]
-  tamga deps    <paquet> --to <deb|rpm|arch|sh> [--distro <auto|debian|fedora|suse|arch|any>] [--online] [--json]
-  tamga convert <paquet> --to <deb|rpm|arch|sh> [--out <dossier|fichier>] [--distro …]
-                [--scripts] [--online] [--no-usrmerge] [--name N] [--version V] [--release R]
+  tamga deps    <paquet> --to <format> [--distro <auto|debian|fedora|suse|arch|any>] [--online] [--json]
+  tamga convert <paquet> --to <format> [--out <dossier|fichier>] [--distro …] [--compress <gz|xz|bz2|zst|none>]
+                [--scripts] [--online] [--no-usrmerge] [--name N] [--version V] [--release R] [--install]
   tamga system
+
+Formats lus / read : .deb .rpm Arch (.pkg.tar.*) .sh (TAMGA) Slackware (.txz .tgz .tbz .tlz)
+  archives tar (.tar .tar.gz .tar.xz .tar.bz2 .tar.zst .tar.lz .tar.lzma .tar.Z .tar.lz4…)
+  Stampede (.slp) Solaris (.pkg, .pkg.gz)
+Formats écrits / written (--to) : deb rpm arch sh slack tar slp
   tamga --version
 ";
 
@@ -36,6 +41,8 @@ struct Args {
     usrmerge: bool,
     meta: MetaOverride,
     json: bool,
+    compress: Option<String>,
+    install: bool,
 }
 
 fn parse(args: &[String]) -> Result<Args> {
@@ -50,6 +57,8 @@ fn parse(args: &[String]) -> Result<Args> {
         usrmerge: true,
         meta: MetaOverride::default(),
         json: false,
+        compress: None,
+        install: false,
     };
     let mut i = 1;
     let val = |i: &mut usize| -> Result<String> {
@@ -58,7 +67,9 @@ fn parse(args: &[String]) -> Result<Args> {
     };
     while i < args.len() {
         match args[i].as_str() {
-            "--to" => a.to = Some(Format::parse(&val(&mut i)?).context("format inconnu (deb, rpm, arch, sh)")?),
+            "--to" => a.to = Some(Format::parse(&val(&mut i)?).context("format inconnu (deb, rpm, arch, sh, slack, tar, slp)")?),
+            "--compress" => a.compress = Some(val(&mut i)?),
+            "--install" => a.install = true,
             "--out" | "-o" => a.out = Some(PathBuf::from(val(&mut i)?)),
             "--distro" => a.distro = TargetDistro::parse(&val(&mut i)?).context("distribution inconnue")?,
             "--scripts" => a.scripts = true,
@@ -147,7 +158,7 @@ fn run_inner(args: &[String]) -> Result<()> {
         }
         "deps" => {
             let f = a.file.context(USAGE)?;
-            let to = a.to.context("--to <deb|rpm|arch|sh>")?;
+            let to = a.to.context("--to <deb|rpm|arch|sh|slack|tar|slp>")?;
             let pkg = convert::load(&f)?;
             let (_, elf) = convert::analyze(&pkg, &f);
             let items = convert::resolve_deps(&pkg, &elf, to, a.distro, a.online, &sys);
@@ -171,7 +182,10 @@ fn run_inner(args: &[String]) -> Result<()> {
         }
         "convert" => {
             let f = a.file.context(USAGE)?;
-            let to = a.to.context("--to <deb|rpm|arch|sh>")?;
+            let to = a.to.context("--to <deb|rpm|arch|sh|slack|tar|slp>")?;
+            if !to.writable() {
+                bail!("TAMGA sait lire les paquets Solaris mais pas en fabriquer");
+            }
             let pkg = convert::load(&f)?;
             if pkg.format == to {
                 bail!("le paquet est déjà au format {}", to.label());
@@ -188,13 +202,24 @@ fn run_inner(args: &[String]) -> Result<()> {
                 usrmerge: a.usrmerge,
                 online: a.online,
                 output: out,
+                compression: a.compress,
             };
             let r = convert::convert(&pkg, &elf, &opts, &sys)?;
             println!("{}", r.path);
             for w in &r.warnings {
                 eprintln!("Avertissement / warning : {w}");
             }
-            eprintln!("Installation : {}", r.install_command);
+            if a.install {
+                let plan = crate::install::plan(to, std::path::Path::new(&r.path), &sys, crate::install::Elevation::Sudo)?;
+                eprintln!("→ {}", plan.display);
+                let code = crate::install::run(&plan, |l| eprintln!("{l}"))?;
+                if code != 0 {
+                    bail!("l'installation a échoué (code {code})");
+                }
+                eprintln!("Installation terminée / installed.");
+            } else {
+                eprintln!("Installation : {}", r.install_command);
+            }
             Ok(())
         }
         _ => {

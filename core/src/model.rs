@@ -14,11 +14,20 @@ pub enum Format {
     Arch,
     /// Installateur autonome TAMGA (.sh)
     Sh,
+    /// Paquet Slackware (.txz, .tgz, .tbz, .tlz)
+    Slack,
+    /// Archive tar simple (.tar, .tar.gz, .tar.xz…), à extraire à la racine
+    Tar,
+    /// Paquet Stampede Linux (.slp)
+    Slp,
+    /// Paquet Solaris SVR4 (.pkg « datastream ») — lecture seule
+    Solaris,
 }
 
 impl Format {
-    pub fn all() -> [Format; 4] {
-        [Format::Deb, Format::Rpm, Format::Arch, Format::Sh]
+    /// Formats que TAMGA sait écrire (Solaris : lecture seule).
+    pub fn all() -> [Format; 7] {
+        [Format::Deb, Format::Rpm, Format::Arch, Format::Sh, Format::Slack, Format::Tar, Format::Slp]
     }
     pub fn id(self) -> &'static str {
         match self {
@@ -26,6 +35,10 @@ impl Format {
             Format::Rpm => "rpm",
             Format::Arch => "arch",
             Format::Sh => "sh",
+            Format::Slack => "slack",
+            Format::Tar => "tar",
+            Format::Slp => "slp",
+            Format::Solaris => "solaris",
         }
     }
     pub fn parse(s: &str) -> Option<Format> {
@@ -34,6 +47,10 @@ impl Format {
             "rpm" => Some(Format::Rpm),
             "arch" | "pkg" | "pacman" | "pkg.tar.zst" => Some(Format::Arch),
             "sh" | "run" => Some(Format::Sh),
+            "slack" | "slackware" | "txz" | "tgz" | "tbz" | "tlz" => Some(Format::Slack),
+            "tar" | "tar.gz" | "tar.xz" | "tar.bz2" | "tar.zst" => Some(Format::Tar),
+            "slp" | "stampede" => Some(Format::Slp),
+            "solaris" | "svr4" => Some(Format::Solaris),
             _ => None,
         }
     }
@@ -43,6 +60,10 @@ impl Format {
             Format::Rpm => ".rpm",
             Format::Arch => ".pkg.tar.zst",
             Format::Sh => ".sh",
+            Format::Slack => ".txz",
+            Format::Tar => ".tar",
+            Format::Slp => ".slp",
+            Format::Solaris => ".pkg",
         }
     }
     /// Famille de dépendances naturelle du format.
@@ -51,8 +72,16 @@ impl Format {
             Format::Deb => Family::Debian,
             Format::Rpm => Family::Fedora,
             Format::Arch => Family::Arch,
-            Format::Sh => Family::Generic,
+            _ => Family::Generic,
         }
+    }
+    /// Formats sans gestion de dépendances par nom de paquet (on vérifie les bibliothèques).
+    pub fn is_generic(self) -> bool {
+        matches!(self, Format::Sh | Format::Slack | Format::Tar | Format::Slp | Format::Solaris)
+    }
+    /// TAMGA sait-il écrire ce format ?
+    pub fn writable(self) -> bool {
+        self != Format::Solaris
     }
 }
 
@@ -251,6 +280,9 @@ pub enum ScriptStyle {
     Rpm,
     /// Fichier .INSTALL d'Arch (fonctions pre_install, post_install…)
     Arch,
+    /// Scripts simples lancés depuis « / » sans argument particulier
+    /// (doinst.sh de Slackware, postinstall de Solaris).
+    Plain,
 }
 
 /// Scripts exécutés à l'installation / la désinstallation.

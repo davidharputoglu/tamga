@@ -162,6 +162,18 @@ pub fn invoke(s: &Scripts, ev: Event, new_v: &str, old_v: &str) -> Option<String
                 func,
             ))
         }
+        ScriptStyle::Plain => {
+            // doinst.sh (Slackware) / postinstall (Solaris) : lancés depuis « / ».
+            let body = match ev {
+                Event::PreInstall | Event::PreUpgrade => &s.pre_install,
+                Event::PostInstall | Event::PostUpgrade => &s.post_install,
+                Event::PreRemove => &s.pre_remove,
+                Event::PostRemove => &s.post_remove,
+            };
+            let body = body.as_ref()?;
+            let interp = interpreter(body);
+            Some(run_embedded(body, |f| format!("( cd / && {interp} \"{f}\" -install )"), &format!("{ev:?}")))
+        }
     }
 }
 
@@ -241,6 +253,46 @@ pub fn for_pacman(s: &Scripts, include: bool) -> Option<String> {
         f(Event::PreRemove, "$1", ""),
         f(Event::PostRemove, "$1", ""),
     ))
+}
+
+/// Contenu de install/doinst.sh pour un paquet Slackware.
+/// `symlinks` : (dossier, cible, nom) ; `configs` : fichiers « .new » à mettre en place.
+pub fn for_slack(
+    s: &Scripts,
+    include: bool,
+    new_v: &str,
+    integ: &Integration,
+    symlinks: &[(String, String, String)],
+    configs: &[String],
+) -> Option<String> {
+    let mut out = String::new();
+    if !configs.is_empty() {
+        out.push_str(
+            "config() {\n  NEW=\"$1\"\n  OLD=\"$(dirname \"$NEW\")/$(basename \"$NEW\" .new)\"\n  if [ ! -r \"$OLD\" ]; then\n    mv \"$NEW\" \"$OLD\"\n  elif [ \"$(md5sum < \"$OLD\")\" = \"$(md5sum < \"$NEW\")\" ]; then\n    rm \"$NEW\"\n  fi\n}\n",
+        );
+        for c in configs {
+            out.push_str(&format!("config {c}\n"));
+        }
+    }
+    // Liens symboliques au format de makepkg (reconnu par removepkg).
+    for (dir, target, name) in symlinks {
+        let d = if dir.is_empty() { "." } else { dir.as_str() };
+        out.push_str(&format!("( cd {d} ; rm -rf {name} )\n( cd {d} ; ln -sf {target} {name} )\n"));
+    }
+    if include {
+        if let Some(pi) = invoke(s, Event::PreInstall, new_v, "") {
+            out.push_str(&pi);
+        }
+        if let Some(po) = invoke(s, Event::PostInstall, new_v, "") {
+            out.push_str(&po);
+        }
+    }
+    out.push_str(&integ.snippet());
+    if out.trim().is_empty() {
+        None
+    } else {
+        Some(format!("#!/bin/sh\n# Généré par TAMGA\n{out}"))
+    }
 }
 
 #[cfg(test)]

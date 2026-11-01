@@ -9,8 +9,23 @@ const TARGETS = [
   { id: "deb", ext: ".deb", desc: "target.deb" },
   { id: "rpm", ext: ".rpm", desc: "target.rpm" },
   { id: "arch", ext: ".pkg.tar.zst", desc: "target.arch" },
-  { id: "sh", ext: ".sh", desc: "target.sh" }
+  { id: "sh", ext: ".sh", desc: "target.sh" },
+  { id: "slack", ext: ".txz", desc: "target.slack" },
+  { id: "tar", ext: ".tar.*", desc: "target.tar" },
+  { id: "slp", ext: ".slp", desc: "target.slp" }
 ];
+// Nom affiché du format d'origine.
+const FORMAT_LABEL = {
+  deb: ".deb", rpm: ".rpm", arch: ".pkg.tar.zst", sh: ".sh",
+  slack: "Slackware", tar: ".tar", slp: ".slp", solaris: "Solaris .pkg"
+};
+// Formats sans dépendances déclarées : on vérifie seulement les bibliothèques.
+const GENERIC = ["sh", "slack", "tar", "slp"];
+// Compressions proposées.
+const COMPRESSIONS = {
+  tar: [["gz", ".tar.gz"], ["xz", ".tar.xz"], ["zst", ".tar.zst"], ["bz2", ".tar.bz2"], ["none", ".tar"]],
+  slack: [["xz", ".txz"], ["gz", ".tgz"], ["bz2", ".tbz"]]
+};
 
 const state = {
   sys: null,
@@ -19,6 +34,8 @@ const state = {
   deps: [],
   extraDeps: [],
   result: null,
+  installable: [],
+  installed: false,
   busyTimer: null
 };
 
@@ -122,7 +139,7 @@ function renderPackage() {
   $("pkg-name").textContent = m.name;
   $("pkg-version").textContent = (m.epoch ? m.epoch + ":" : "") + m.version + (m.release ? "-" + m.release : "");
   $("pkg-summary").textContent = m.summary || "";
-  $("pkg-format").textContent = (TARGETS.find(x => x.id === a.format) || {}).ext || a.format;
+  $("pkg-format").textContent = FORMAT_LABEL[a.format] || a.format;
   $("pkg-arch").textContent = m.arch;
   $("pkg-files").textContent = a.file_count;
   $("pkg-size").textContent = fmtSize(a.installed_size);
@@ -176,6 +193,30 @@ function selectTarget(id) {
   state.target = id;
   document.querySelectorAll(".target").forEach(b => b.classList.toggle("selected", b.dataset.id === id));
   fillDistros();
+  fillCompression();
+}
+
+function fillCompression() {
+  const opts = COMPRESSIONS[state.target];
+  $("compression-row").hidden = !opts;
+  if (!opts) return;
+  const sel = $("compression");
+  const prev = sel.value;
+  sel.innerHTML = "";
+  opts.forEach(([v, label]) => {
+    const o = el("option", "", label);
+    o.value = v;
+    sel.appendChild(o);
+  });
+  if (opts.some(o => o[0] === prev)) sel.value = prev;
+}
+
+function compression() {
+  return COMPRESSIONS[state.target] ? $("compression").value : null;
+}
+
+function canInstall(fmt) {
+  return state.installable.includes(fmt);
 }
 
 function fillDistros() {
@@ -185,7 +226,7 @@ function fillDistros() {
   const fam = state.sys && state.sys.family;
   const fmtOfFam = { debian: "deb", fedora: "rpm", suse: "rpm", arch: "arch" }[fam];
   const opts = [];
-  if (state.target === "sh") {
+  if (GENERIC.includes(state.target)) {
     opts.push(["any", t("distro.any")]);
   } else {
     if (fmtOfFam === state.target) opts.push(["this_system", t("distro.this", { name: state.sys.name || state.sys.id })]);
@@ -240,8 +281,10 @@ function renderDeps() {
   const tb = $("deps-body");
   tb.innerHTML = "";
   const target = TARGETS.find(x => x.id === state.target);
-  $("deps-target").textContent = "→ " + target.ext + " · " + $("distro").selectedOptions[0].textContent;
-  $("deps-note").textContent = state.target === "sh" ? t("deps.sh_note") : "";
+  const comp = COMPRESSIONS[state.target] && $("compression").selectedOptions[0];
+  $("deps-target").textContent = "→ " + (comp ? comp.textContent : target.ext) + " · " + $("distro").selectedOptions[0].textContent;
+  $("deps-note").textContent = state.target === "sh" ? t("deps.sh_note") : (GENERIC.includes(state.target) ? t("deps.generic_note") : "");
+  $("btn-convert-install").hidden = !canInstall(state.target);
 
   const rows = state.deps.concat(state.extraDeps);
   rows.forEach((d, i) => {
@@ -291,11 +334,11 @@ function addDep() {
 }
 
 // ---------------------------------------------------------------- conversion
-async function doConvert() {
+async function doConvert(installAfter) {
   const meta = metaOverride();
   let output;
   try {
-    const suggested = await invoke("default_output", { format: state.target, meta });
+    const suggested = await invoke("default_output", { format: state.target, meta, compression: compression() });
     output = await TAURI.dialog.save({
       title: t("save.title"),
       defaultPath: suggested
@@ -314,13 +357,56 @@ async function doConvert() {
         include_scripts: $("opt-scripts").checked,
         usrmerge: $("opt-usrmerge").checked,
         online: $("opt-online").checked,
-        output
+        output,
+        compression: compression()
       }
     });
+    state.installed = false;
+    $("install-status").hidden = true;
+    $("install-log-box").hidden = true;
+    $("install-log").textContent = "";
     stopBusy();
     renderResult();
     show("screen-result");
+    if (installAfter === true) await runInstall();
   } catch (e) { showError(e); }
+}
+
+// ---------------------------------------------------------------- installation
+async function runInstall() {
+  const r = state.result;
+  if (!r) return;
+  $("install-log").textContent = "";
+  $("busy-log").textContent = "";
+  $("busy-log").hidden = false;
+  busy("busy.installing", baseName(r.path));
+  let ok = false, msg = "";
+  try {
+    const res = await invoke("install_package", { path: r.path, format: r.format });
+    ok = res.code === 0;
+    msg = ok ? t("install.done") : t("install.failed");
+  } catch (e) {
+    const raw = String(e && e.message ? e.message : e);
+    const key = raw.split(/[\s:]/)[0];
+    msg = key.startsWith("err.") && hasT(key) ? t(key) : t("install.failed") + " " + raw;
+  }
+  stopBusy();
+  $("busy-log").hidden = true;
+  state.installed = ok;
+  const st = $("install-status");
+  st.textContent = msg;
+  st.className = "install-status " + (ok ? "ok" : "bad");
+  st.hidden = false;
+  $("install-log").textContent = $("busy-log").textContent;
+  $("install-log-box").hidden = !$("install-log").textContent;
+  renderResult();
+  show("screen-result");
+}
+
+function appendInstallLog(line) {
+  const pre = $("busy-log");
+  pre.textContent += line + "\n";
+  pre.scrollTop = pre.scrollHeight;
 }
 
 function renderResult() {
@@ -336,6 +422,7 @@ function renderResult() {
   ul.innerHTML = "";
   (r.depends || []).forEach(d => ul.appendChild(el("li", "", d)));
   $("result-deps-box").hidden = !(r.depends || []).length;
+  $("btn-install").hidden = !canInstall(r.format) || state.installed;
 }
 
 // ---------------------------------------------------------------- démarrage
@@ -351,8 +438,10 @@ function bind() {
   $("btn-accept").addEventListener("click", () => { storageSet("tamga-legal", LEGAL_VERSION); goHome(); });
   $("btn-deps").addEventListener("click", checkDeps);
   $("btn-deps-back").addEventListener("click", () => show("screen-package"));
-  $("btn-convert").addEventListener("click", doConvert);
-  $("btn-convert-anyway").addEventListener("click", doConvert);
+  $("btn-convert").addEventListener("click", () => doConvert(false));
+  $("btn-convert-install").addEventListener("click", () => doConvert(true));
+  $("btn-convert-anyway").addEventListener("click", () => doConvert(false));
+  $("btn-install").addEventListener("click", runInstall);
   $("dep-add-btn").addEventListener("click", addDep);
   $("dep-add-input").addEventListener("keydown", e => { if (e.key === "Enter") addDep(); });
   $("btn-copy").addEventListener("click", async () => {
@@ -396,6 +485,8 @@ async function start() {
   bind();
   initDropzone(openFile);
   await loadSystem();
+  try { state.installable = await invoke("installable_formats"); } catch (e) { state.installable = []; }
+  if (TAURI && TAURI.event) TAURI.event.listen("install-log", ev => appendInstallLog(String(ev.payload))).catch(() => {});
   if (storageGet("tamga-legal") === LEGAL_VERSION) show("screen-home");
   else show("screen-legal");
 }

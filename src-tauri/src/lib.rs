@@ -73,9 +73,42 @@ async fn resolve_deps(format: Format, distro: TargetDistro, online: bool, state:
         .map_err(|e| e.to_string())
 }
 
+/// Formats que cette machine sait installer directement.
+#[tauri::command]
+fn installable_formats(state: State<'_, AppState>) -> Vec<Format> {
+    tamga_core::install::installable_formats(&system(&state))
+}
+
+/// Résultat d'une installation.
+#[derive(serde::Serialize)]
+struct InstallResult {
+    code: i32,
+    command: String,
+}
+
+/// Installe un paquet converti avec le gestionnaire du système (mot de passe demandé par pkexec).
+/// Chaque ligne affichée par l'installation est envoyée à l'interface (« install-log »).
+#[tauri::command]
+async fn install_package(path: String, format: Format, app: tauri::AppHandle, state: State<'_, AppState>) -> Result<InstallResult, String> {
+    use tauri::Emitter;
+    let sys = system(&state);
+    tauri::async_runtime::spawn_blocking(move || {
+        let plan = tamga_core::install::plan(format, Path::new(&path), &sys, tamga_core::install::Elevation::Pkexec).map_err(err_string)?;
+        let _ = app.emit("install-log", format!("$ {}", plan.display));
+        let a2 = app.clone();
+        let code = tamga_core::install::run(&plan, move |l| {
+            let _ = a2.emit("install-log", l);
+        })
+        .map_err(err_string)?;
+        Ok(InstallResult { code, command: plan.display })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Chemin de sortie conseillé : même dossier que le paquet d'origine.
 #[tauri::command]
-fn default_output(format: Format, meta: MetaOverride, state: State<'_, AppState>) -> Result<String, String> {
+fn default_output(format: Format, meta: MetaOverride, compression: Option<String>, state: State<'_, AppState>) -> Result<String, String> {
     let s = current(&state)?;
     let mut m = s.pkg.meta.clone();
     if let Some(n) = meta.name.filter(|n| !n.trim().is_empty()) {
@@ -87,7 +120,7 @@ fn default_output(format: Format, meta: MetaOverride, state: State<'_, AppState>
     if let Some(r) = meta.release {
         m.release = r;
     }
-    let name = convert::default_file_name(&m, format);
+    let name = convert::default_file_name_with(&m, format, compression.as_deref());
     let dir = s.source.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
     Ok(dir.join(name).to_string_lossy().to_string())
 }
@@ -147,6 +180,8 @@ pub fn run() {
             resolve_deps,
             default_output,
             convert_package,
+            installable_formats,
+            install_package,
             clear_cache,
             quit_app
         ])
