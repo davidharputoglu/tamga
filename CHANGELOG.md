@@ -24,6 +24,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/).
 - Nouveau logo (sceau turquoise) comme icône de l'application et favicon.
 - Installateurs de TAMGA : .deb, .rpm, AppImage, .sh et archive du code source.
 - Construction automatique des installateurs par GitHub Actions, publiés sur la page Releases.
+- Installateurs pour les processeurs ARM : aarch64/arm64 (64 bits) et armhf (32 bits, sans AppImage).
 
 ### Corrigé
 - Le clic sur la zone de dépôt ouvre la vraie fenêtre de choix de fichier (module dialog).

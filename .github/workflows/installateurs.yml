@@ -5,8 +5,11 @@
 #   1. Onglet « Actions » sur GitHub → « Installateurs TAMGA » → bouton « Run workflow ».
 #   2. Pousser une étiquette de version, par exemple : git tag v0.1 && git push origin v0.1
 #
-# Résultat : une « Release » GitHub (page Releases du dépôt) contenant
-#   .deb, .rpm, AppImage, .sh, l'archive du code source et SHA256SUMS.txt
+# Trois architectures sont construites en parallèle :
+#   x86_64  (PC classiques)             → .deb, .rpm, AppImage, .sh
+#   aarch64 (ARM 64 bits, Raspberry Pi) → .deb, .rpm, AppImage, .sh   (vraie machine ARM)
+#   armhf   (ARM 32 bits, Raspberry Pi) → .deb, .rpm, .sh             (compilation croisée)
+# puis tout est publié sur la page « Releases » avec l'archive du code source et SHA256SUMS.txt.
 
 name: Installateurs TAMGA
 
@@ -18,11 +21,27 @@ on:
 permissions:
   contents: write
 
+env:
+  # linuxdeploy (fabrication des AppImage) est lui-même une AppImage : on l'extrait au lieu de le monter.
+  APPIMAGE_EXTRACT_AND_RUN: "1"
+
 jobs:
-  linux-x86_64:
-    # Ubuntu 22.04 (glibc 2.35) : les installateurs fonctionnent aussi sur Debian 12,
-    # Ubuntu 22.04, Linux Mint 21, Fedora 36+, openSUSE, Arch…
-    runs-on: ubuntu-22.04
+  # ---------------------------------------------------------------------------
+  # PC (x86_64) et ARM 64 bits (aarch64) : construction sur une vraie machine
+  # ---------------------------------------------------------------------------
+  natif:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    name: ${{ matrix.arch }}
+    # Ubuntu 22.04 (glibc 2.35) : installateurs compatibles Debian 12, Ubuntu 22.04,
+    # Linux Mint 21, Raspberry Pi OS 12, Fedora 36+, openSUSE, Arch…
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Récupération du code
         uses: actions/checkout@v4
@@ -31,7 +50,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
-            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libfuse2
 
       - name: Node.js
         uses: actions/setup-node@v4
@@ -44,6 +63,7 @@ jobs:
       - name: Cache de compilation Rust
         uses: Swatinem/rust-cache@v2
         with:
+          key: ${{ matrix.arch }}
           workspaces: |
             core -> target
             src-tauri -> target
@@ -57,31 +77,142 @@ jobs:
       - name: Construction .deb, .rpm et AppImage
         run: npx tauri build
 
-      - name: Installateur .sh, code source et empreintes
+      - name: Installateur .sh
         run: |
-          # Version technique (ex. 0.1.0) et version affichée (ex. 0.1)
           FULL=$(node -p "require('./package.json').version")
           VERSION="${FULL%.0}"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           mkdir -p dist
           B=src-tauri/target/release/bundle
           cp $B/deb/*.deb $B/rpm/*.rpm $B/appimage/*.AppImage dist/
-          # Noms de fichiers avec la version affichée : TAMGA_0.1_amd64.deb…
-          for f in dist/*; do
-            n="${f//$FULL/$VERSION}"
-            [ "$f" = "$n" ] || mv "$f" "$n"
-          done
+          for f in dist/*; do n="${f//$FULL/$VERSION}"; [ "$f" = "$n" ] || mv "$f" "$n"; done
           # TAMGA fabrique lui-même son installateur .sh à partir du .deb
-          ./src-tauri/target/release/tamga convert "dist/TAMGA_${VERSION}_amd64.deb" --to sh \
-            --out "dist/tamga-${VERSION}-x86_64.sh"
-          git archive --format=tar.gz --prefix="tamga-${VERSION}/" -o "dist/tamga-${VERSION}-source.tar.gz" HEAD
-          cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+          ./src-tauri/target/release/tamga convert dist/*.deb --to sh \
+            --out "dist/tamga-${VERSION}-${{ matrix.arch }}.sh"
+          ls -la dist
 
-      - name: Fichiers téléchargeables depuis l'onglet Actions
+      - name: Mise de côté des fichiers
         uses: actions/upload-artifact@v4
         with:
-          name: tamga-${{ env.VERSION }}-installateurs
+          name: tamga-${{ matrix.arch }}
           path: dist/
+
+  # ---------------------------------------------------------------------------
+  # ARM 32 bits (armhf) : compilation croisée depuis un PC
+  # ---------------------------------------------------------------------------
+  armhf:
+    name: armhf
+    runs-on: ubuntu-22.04
+    env:
+      PKG_CONFIG_ALLOW_CROSS: "1"
+      PKG_CONFIG_LIBDIR: /usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig
+      CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+      CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+      CXX_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-g++
+      AR_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-ar
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Dépôts Ubuntu pour ARM 32 bits
+        run: |
+          sudo dpkg --add-architecture armhf
+          # Les miroirs habituels ne contiennent que les PC : on les limite à amd64…
+          for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
+            [ -f "$f" ] || continue
+            sudo sed -i -E '/^deb \[/{/arch=/!s/^deb \[/deb [arch=amd64 /}' "$f"
+            sudo sed -i -E 's/^deb ([^[])/deb [arch=amd64] \1/' "$f"
+          done
+          for f in /etc/apt/sources.list.d/*.sources; do
+            [ -f "$f" ] || continue
+            grep -q '^Architectures:' "$f" || sudo sed -i '/^Types:/a Architectures: amd64' "$f"
+          done
+          # … et on ajoute le miroir « ports » qui contient les paquets ARM.
+          for s in jammy jammy-updates jammy-security jammy-backports; do
+            echo "deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports $s main restricted universe multiverse"
+          done | sudo tee /etc/apt/sources.list.d/armhf-ports.list
+          sudo apt-get update
+
+      - name: Compilateur croisé et bibliothèques ARM 32 bits
+        run: |
+          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf pkg-config \
+            libwebkit2gtk-4.1-dev:armhf libxdo-dev:armhf librsvg2-dev:armhf \
+            libayatana-appindicator3-dev:armhf libssl-dev:armhf
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: armv7-unknown-linux-gnueabihf
+
+      - name: Cache de compilation Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: armhf
+          workspaces: |
+            core -> target
+            src-tauri -> target
+
+      - name: Outil Tauri
+        run: npm ci
+
+      - name: Tests du moteur (sur le PC) et outil de conversion
+        # Le moteur est compilé aussi pour le PC : il sert à fabriquer le .sh juste après.
+        env:
+          PKG_CONFIG_LIBDIR: ""
+        run: |
+          cargo test --release --manifest-path core/Cargo.toml
+          cargo build --release --manifest-path core/Cargo.toml
+
+      - name: Construction .deb et .rpm (ARM 32 bits)
+        run: npx tauri build --target armv7-unknown-linux-gnueabihf --bundles deb,rpm
+
+      - name: Installateur .sh
+        run: |
+          FULL=$(node -p "require('./package.json').version")
+          VERSION="${FULL%.0}"
+          mkdir -p dist
+          B=src-tauri/target/armv7-unknown-linux-gnueabihf/release/bundle
+          cp $B/deb/*.deb $B/rpm/*.rpm dist/
+          for f in dist/*; do n="${f//$FULL/$VERSION}"; [ "$f" = "$n" ] || mv "$f" "$n"; done
+          ./core/target/release/tamga-cli convert dist/*.deb --to sh --out "dist/tamga-${VERSION}-armhf.sh"
+          file src-tauri/target/armv7-unknown-linux-gnueabihf/release/tamga
+          ls -la dist
+
+      - name: Mise de côté des fichiers
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamga-armhf
+          path: dist/
+
+  # ---------------------------------------------------------------------------
+  # Publication : code source, empreintes, page Releases
+  # ---------------------------------------------------------------------------
+  publication:
+    name: Publication
+    needs: [natif, armhf]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Récupération des installateurs des trois architectures
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tamga-*
+          path: dist
+          merge-multiple: true
+
+      - name: Code source et empreintes
+        run: |
+          FULL=$(node -p "require('./package.json').version")
+          VERSION="${FULL%.0}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          git archive --format=tar.gz --prefix="tamga-${VERSION}/" -o "dist/tamga-${VERSION}-source.tar.gz" HEAD
+          cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - name: Publication sur la page Releases
         uses: softprops/action-gh-release@v2
@@ -90,16 +221,19 @@ jobs:
           name: TAMGA ${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
           body: |
-            Fichiers d'installation de TAMGA ${{ env.VERSION }}.
+            Fichiers d'installation de TAMGA ${{ env.VERSION }} — Installation files — Kurulum dosyaları
 
-            | Fichier | Pour | Commande |
-            |---|---|---|
-            | `TAMGA-${{ env.VERSION }}-1.x86_64.rpm` | Fedora, RHEL, openSUSE | `sudo dnf install ./TAMGA-${{ env.VERSION }}-1.x86_64.rpm` |
-            | `TAMGA_${{ env.VERSION }}_amd64.deb` | Debian, Ubuntu, Mint | `sudo apt install ./TAMGA_${{ env.VERSION }}_amd64.deb` |
-            | `TAMGA_${{ env.VERSION }}_amd64.AppImage` | toutes distributions | `chmod +x TAMGA_${{ env.VERSION }}_amd64.AppImage && ./TAMGA_${{ env.VERSION }}_amd64.AppImage` |
-            | `tamga-${{ env.VERSION }}-x86_64.sh` | toutes distributions | `sh tamga-${{ env.VERSION }}-x86_64.sh` |
-            | `tamga-${{ env.VERSION }}-source.tar.gz` | code source | voir le README |
+            | Processeur / CPU / İşlemci | .deb | .rpm | AppImage | .sh |
+            |---|---|---|---|---|
+            | **x86_64** (PC) | `TAMGA_${{ env.VERSION }}_amd64.deb` | `TAMGA-${{ env.VERSION }}-1.x86_64.rpm` | `TAMGA_${{ env.VERSION }}_amd64.AppImage` | `tamga-${{ env.VERSION }}-x86_64.sh` |
+            | **aarch64 / arm64** (Raspberry Pi 4/5 64 bits, ARM) | `TAMGA_${{ env.VERSION }}_arm64.deb` | `TAMGA-${{ env.VERSION }}-1.aarch64.rpm` | `TAMGA_${{ env.VERSION }}_aarch64.AppImage` | `tamga-${{ env.VERSION }}-aarch64.sh` |
+            | **armhf** (Raspberry Pi 32 bits) | `TAMGA_${{ env.VERSION }}_armhf.deb` | `TAMGA-${{ env.VERSION }}-1.armhfp.rpm` | — | `tamga-${{ env.VERSION }}-armhf.sh` |
 
-            Voir CHANGELOG.md pour le détail des nouveautés.
+            - Debian / Ubuntu / Mint / Raspberry Pi OS : `sudo apt install ./TAMGA_….deb`
+            - Fedora / RHEL / openSUSE : `sudo dnf install ./TAMGA-….rpm`
+            - AppImage : `chmod +x TAMGA_….AppImage && ./TAMGA_….AppImage`
+            - .sh : `sh tamga-….sh`
+
+            glibc ≥ 2.35. Voir / See / Bkz. CHANGELOG.md
           files: dist/*
           fail_on_unmatched_files: true

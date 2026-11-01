@@ -66,8 +66,12 @@ Download the installation files from the
 | `tamga-0.1-x86_64.sh` | all distributions | `sh tamga-0.1-x86_64.sh` |
 | `tamga-0.1-source.tar.gz` | source code | see “Build TAMGA” below |
 
+**ARM processors** (Raspberry Pi, ARM computers) — the same files exist for:
+- **aarch64 / arm64** (64-bit): `TAMGA_0.1_arm64.deb`, `TAMGA-0.1-1.aarch64.rpm`, `TAMGA_0.1_aarch64.AppImage`, `tamga-0.1-aarch64.sh`
+- **armhf** (32-bit): `TAMGA_0.1_armhf.deb`, `TAMGA-0.1-1.armhfp.rpm`, `tamga-0.1-armhf.sh` (no AppImage)
+
 The versions published on GitHub need glibc 2.35 or newer
-(Debian 12, Ubuntu 22.04, Linux Mint 21, Fedora 36+, openSUSE, Arch…).
+(Debian 12, Ubuntu 22.04, Linux Mint 21, Raspberry Pi OS 12, Fedora 36+, openSUSE, Arch…).
 
 ### How the installation files are built
 
@@ -76,7 +80,7 @@ GitHub builds them automatically (file `.github/workflows/installateurs.yml`):
 1. **Actions** tab → **Installateurs TAMGA** → **Run workflow** button;
 2. or by pushing a version tag: `git tag v0.1 && git push origin v0.1`.
 
-A few minutes later, a new Release appears with the .deb, the .rpm, the AppImage, the .sh
+A few minutes later, a new Release appears with, for x86_64, aarch64 and armhf, the .deb, the .rpm, the AppImage, the .sh
 (made by TAMGA itself from the .deb), the source code archive and `SHA256SUMS.txt`.
 You can produce the same files on your own computer with `npm run build` (see below).
 
@@ -164,8 +168,12 @@ Les fichiers d'installation se téléchargent sur la page
 | `tamga-0.1-x86_64.sh` | toutes distributions | `sh tamga-0.1-x86_64.sh` |
 | `tamga-0.1-source.tar.gz` | code source | voir « Compiler TAMGA » ci-dessous |
 
+**Processeurs ARM** (Raspberry Pi, ordinateurs ARM) — les mêmes fichiers existent pour :
+- **aarch64 / arm64** (64 bits) : `TAMGA_0.1_arm64.deb`, `TAMGA-0.1-1.aarch64.rpm`, `TAMGA_0.1_aarch64.AppImage`, `tamga-0.1-aarch64.sh`
+- **armhf** (32 bits) : `TAMGA_0.1_armhf.deb`, `TAMGA-0.1-1.armhfp.rpm`, `tamga-0.1-armhf.sh` (pas d'AppImage)
+
 Les versions publiées sur GitHub demandent une glibc 2.35 ou plus récente
-(Debian 12, Ubuntu 22.04, Linux Mint 21, Fedora 36+, openSUSE, Arch…).
+(Debian 12, Ubuntu 22.04, Linux Mint 21, Raspberry Pi OS 12, Fedora 36+, openSUSE, Arch…).
 
 ### Comment ces fichiers sont construits
 
@@ -174,7 +182,7 @@ GitHub les fabrique automatiquement (fichier `.github/workflows/installateurs.ym
 1. onglet **Actions** → **Installateurs TAMGA** → bouton **Run workflow** ;
 2. ou en poussant une étiquette de version : `git tag v0.1 && git push origin v0.1`.
 
-Quelques minutes plus tard, une nouvelle Release apparaît avec le .deb, le .rpm, l'AppImage,
+Quelques minutes plus tard, une nouvelle Release apparaît avec, pour x86_64, aarch64 et armhf, le .deb, le .rpm, l'AppImage,
 le .sh (fabriqué par TAMGA lui-même à partir du .deb), l'archive du code source et
 le fichier `SHA256SUMS.txt`. Les mêmes fichiers peuvent être produits sur votre machine
 avec `npm run build` (voir ci-dessous).
@@ -264,8 +272,12 @@ sayfasından indirilir:
 | `tamga-0.1-x86_64.sh` | tüm dağıtımlar | `sh tamga-0.1-x86_64.sh` |
 | `tamga-0.1-source.tar.gz` | kaynak kod | aşağıdaki « TAMGA'yı derleme » bölümüne bakın |
 
+**ARM işlemciler** (Raspberry Pi, ARM bilgisayarlar) — aynı dosyalar şunlar için de vardır:
+- **aarch64 / arm64** (64 bit): `TAMGA_0.1_arm64.deb`, `TAMGA-0.1-1.aarch64.rpm`, `TAMGA_0.1_aarch64.AppImage`, `tamga-0.1-aarch64.sh`
+- **armhf** (32 bit): `TAMGA_0.1_armhf.deb`, `TAMGA-0.1-1.armhfp.rpm`, `tamga-0.1-armhf.sh` (AppImage yok)
+
 GitHub'da yayımlanan sürümler glibc 2.35 veya daha yenisini gerektirir
-(Debian 12, Ubuntu 22.04, Linux Mint 21, Fedora 36+, openSUSE, Arch…).
+(Debian 12, Ubuntu 22.04, Linux Mint 21, Raspberry Pi OS 12, Fedora 36+, openSUSE, Arch…).
 
 ### Kurulum dosyaları nasıl oluşturulur?
 
@@ -274,7 +286,7 @@ GitHub bunları otomatik olarak oluşturur (`.github/workflows/installateurs.yml
 1. **Actions** sekmesi → **Installateurs TAMGA** → **Run workflow** düğmesi;
 2. ya da bir sürüm etiketi göndererek: `git tag v0.1 && git push origin v0.1`.
 
-Birkaç dakika sonra .deb, .rpm, AppImage, .sh (TAMGA'nın kendisi tarafından .deb'den üretilir),
+Birkaç dakika sonra x86_64, aarch64 ve armhf için .deb, .rpm, AppImage, .sh (TAMGA'nın kendisi tarafından .deb'den üretilir),
 kaynak kod arşivi ve `SHA256SUMS.txt` dosyasını içeren yeni bir Release yayımlanır.
 Aynı dosyaları kendi bilgisayarınızda `npm run build` ile de üretebilirsiniz (aşağıya bakın).
 
