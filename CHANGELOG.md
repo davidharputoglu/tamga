@@ -23,6 +23,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/).
 - Mode texte : `tamga analyze|deps|convert|system`.
 - Nouveau logo (sceau turquoise) comme icône de l'application et favicon.
 - Installateurs de TAMGA : .deb, .rpm, AppImage, .sh et archive du code source.
+- Construction automatique des installateurs par GitHub Actions, publiés sur la page Releases.
 
 ### Corrigé
 - Le clic sur la zone de dépôt ouvre la vraie fenêtre de choix de fichier (module dialog).

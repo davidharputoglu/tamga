@@ -37,7 +37,8 @@ par distribution.
 
 ## Installer TAMGA
 
-Le dossier `dist/` contient TAMGA prêt à installer :
+Les fichiers d'installation se téléchargent sur la page
+[**Releases**](https://github.com/davidharputoglu/tamga/releases) du dépôt :
 
 | Fichier | Pour | Commande |
 |---|---|---|
@@ -47,7 +48,20 @@ Le dossier `dist/` contient TAMGA prêt à installer :
 | `tamga-0.1.3-x86_64.sh` | toutes distributions | `sh tamga-0.1.3-x86_64.sh` |
 | `tamga-0.1.3-source.tar.gz` | code source | voir « Compiler » ci-dessous |
 
-Ces versions demandent une glibc 2.39 ou plus récente (Fedora 40+, Ubuntu 24.04+, Debian 13, Arch).
+Les versions publiées sur GitHub demandent une glibc 2.35 ou plus récente
+(Debian 12, Ubuntu 22.04, Linux Mint 21, Fedora 36+, openSUSE, Arch…).
+
+### Comment ces fichiers sont construits
+
+GitHub les fabrique automatiquement (fichier `.github/workflows/installateurs.yml`) :
+
+1. onglet **Actions** → **Installateurs TAMGA** → bouton **Run workflow** ;
+2. ou en poussant une étiquette de version : `git tag v0.1.4 && git push origin v0.1.4`.
+
+En quelques minutes, une nouvelle Release apparaît avec le .deb, le .rpm, l'AppImage,
+le .sh (fabriqué par TAMGA lui-même à partir du .deb), l'archive du code source et
+le fichier `SHA256SUMS.txt`. Les mêmes fichiers peuvent être produits sur ta machine
+avec `npm run build` (voir ci-dessous).
 
 ## Compiler TAMGA
 

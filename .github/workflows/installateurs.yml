@@ -1,0 +1,98 @@
+# Construction automatique des fichiers d'installation de TAMGA
+# Automatic build of TAMGA's installation files
+#
+# Deux façons de lancer la construction :
+#   1. Onglet « Actions » sur GitHub → « Installateurs TAMGA » → bouton « Run workflow ».
+#   2. Pousser une étiquette de version, par exemple : git tag v0.1.4 && git push origin v0.1.4
+#
+# Résultat : une « Release » GitHub (page Releases du dépôt) contenant
+#   .deb, .rpm, AppImage, .sh, l'archive du code source et SHA256SUMS.txt
+
+name: Installateurs TAMGA
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  linux-x86_64:
+    # Ubuntu 22.04 (glibc 2.35) : les installateurs fonctionnent aussi sur Debian 12,
+    # Ubuntu 22.04, Linux Mint 21, Fedora 36+, openSUSE, Arch…
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Bibliothèques nécessaires à Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache de compilation Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            core -> target
+            src-tauri -> target
+
+      - name: Outil Tauri
+        run: npm ci
+
+      - name: Tests du moteur de conversion
+        run: cargo test --release --manifest-path core/Cargo.toml
+
+      - name: Construction .deb, .rpm et AppImage
+        run: npx tauri build
+
+      - name: Installateur .sh, code source et empreintes
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p dist
+          B=src-tauri/target/release/bundle
+          cp $B/deb/*.deb $B/rpm/*.rpm $B/appimage/*.AppImage dist/
+          # TAMGA fabrique lui-même son installateur .sh à partir du .deb
+          ./src-tauri/target/release/tamga convert "dist/TAMGA_${VERSION}_amd64.deb" --to sh \
+            --out "dist/tamga-${VERSION}-x86_64.sh"
+          git archive --format=tar.gz --prefix="tamga-${VERSION}/" -o "dist/tamga-${VERSION}-source.tar.gz" HEAD
+          cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Fichiers téléchargeables depuis l'onglet Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamga-${{ env.VERSION }}-installateurs
+          path: dist/
+
+      - name: Publication sur la page Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: TAMGA ${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            Fichiers d'installation de TAMGA ${{ env.VERSION }}.
+
+            | Fichier | Pour | Commande |
+            |---|---|---|
+            | `TAMGA-${{ env.VERSION }}-1.x86_64.rpm` | Fedora, RHEL, openSUSE | `sudo dnf install ./TAMGA-${{ env.VERSION }}-1.x86_64.rpm` |
+            | `TAMGA_${{ env.VERSION }}_amd64.deb` | Debian, Ubuntu, Mint | `sudo apt install ./TAMGA_${{ env.VERSION }}_amd64.deb` |
+            | `TAMGA_${{ env.VERSION }}_amd64.AppImage` | toutes distributions | `chmod +x TAMGA_${{ env.VERSION }}_amd64.AppImage && ./TAMGA_${{ env.VERSION }}_amd64.AppImage` |
+            | `tamga-${{ env.VERSION }}-x86_64.sh` | toutes distributions | `sh tamga-${{ env.VERSION }}-x86_64.sh` |
+            | `tamga-${{ env.VERSION }}-source.tar.gz` | code source | voir le README |
+
+            Voir CHANGELOG.md pour le détail des nouveautés.
+          files: dist/*
+          fail_on_unmatched_files: true
