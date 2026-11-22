@@ -139,6 +139,7 @@
   "warn.ld_conf_added": "The libraries are in an unusual folder for the target: TAMGA added an ld.so.conf.d file so they can be found.",
   "warn.missing_deps": "Some dependencies could not be translated.",
   "warn.scripts_included": "The original scripts are included: check that everything works after installation.",
+  "busy.runes": "“tamga” and “türük” written in Old Turkic runes (Orkhon script)",
   "target.slack": "Slackware (.txz / .tgz package)",
   "target.tar": "Tar archive, to extract at the root /",
   "target.slp": "Stampede Linux (legacy format)",
@@ -164,5 +165,15 @@
   "warn.tar_no_uninstall": "A tar archive is installed by extracting it at the root: it cannot be uninstalled automatically.",
   "warn.tar_no_scripts": "A tar archive cannot contain installation scripts: they were not carried over.",
   "warn.slp_arch": "Stampede does not know this architecture: the package is marked “all architectures”.",
-  "busy.runes": "“tamga” and “türük” written in Old Turkic runes (Orkhon script)"
+  "runes.title": "Your words in runes",
+  "runes.help": "Type one or more words, separated by commas. TAMGA writes them in Old Turkic runes (Orkhon script) following Turkish pronunciation. Sounds that did not exist in Old Turkic get the closest letter: f → p, v → b, h → k, c → ç, j → y.",
+  "runes.note": "As in the Orkhon inscriptions, the vowels a and e are only written at the start and end of a word, and runes are read from right to left.",
+  "runes.placeholder": "tamga, türük",
+  "runes.reset": "Original words",
+  "runes.cancel": "Cancel",
+  "runes.save": "Save",
+  "runes.saved": "Your runes are saved: they will appear while TAMGA works.",
+  "runes.too_long": "Too long: {max} runes at most ({n} now).",
+  "runes.empty": "Type at least one word.",
+  "busy.runes_words": "Your words in Old Turkic runes (Orkhon script): {words}"
 }

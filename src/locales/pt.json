@@ -139,6 +139,7 @@
   "warn.ld_conf_added": "As bibliotecas estão numa pasta incomum para o destino: o TAMGA adicionou um arquivo ld.so.conf.d para que sejam encontradas.",
   "warn.missing_deps": "Algumas dependências não puderam ser traduzidas.",
   "warn.scripts_included": "Os scripts originais estão incluídos: verifique se tudo funciona após a instalação.",
+  "busy.runes": "«tamga» e «türük» escritos em runas turcas antigas (alfabeto de Orkhon)",
   "target.slack": "Slackware (pacote .txz / .tgz)",
   "target.tar": "Arquivo tar, para extrair na raiz /",
   "target.slp": "Stampede Linux (formato antigo)",
@@ -164,5 +165,15 @@
   "warn.tar_no_uninstall": "Um arquivo tar é instalado extraindo-o na raiz: não poderá ser desinstalado automaticamente.",
   "warn.tar_no_scripts": "Um arquivo tar não pode conter scripts de instalação: eles não foram mantidos.",
   "warn.slp_arch": "O Stampede não conhece esta arquitetura: o pacote foi marcado como «todas as arquiteturas».",
-  "busy.runes": "«tamga» e «türük» escritos em runas turcas antigas (alfabeto de Orkhon)"
+  "runes.title": "As suas palavras em runas",
+  "runes.help": "Escreva uma ou mais palavras, separadas por vírgulas. O TAMGA escreve-as em runas turcas antigas (alfabeto de Orkhon) segundo a pronúncia turca. Os sons que não existiam no turco antigo recebem a letra mais próxima: f → p, v → b, h → k, c → ç, j → y.",
+  "runes.note": "Como nas inscrições de Orkhon, as vogais a e e só se escrevem no início e no fim da palavra, e as runas leem-se da direita para a esquerda.",
+  "runes.placeholder": "tamga, türük",
+  "runes.reset": "Palavras originais",
+  "runes.cancel": "Cancelar",
+  "runes.save": "Guardar",
+  "runes.saved": "As suas runas foram guardadas: vão aparecer enquanto o TAMGA trabalha.",
+  "runes.too_long": "Demasiado longo: no máximo {max} runas (agora {n}).",
+  "runes.empty": "Escreva pelo menos uma palavra.",
+  "busy.runes_words": "As suas palavras em runas turcas antigas (alfabeto de Orkhon): {words}"
 }

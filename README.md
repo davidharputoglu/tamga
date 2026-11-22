@@ -61,7 +61,8 @@ Smart Linux package converter, like Alien but with a graphical interface: **.deb
 - **100% Rust engine**: no need for dpkg, rpmbuild or makepkg to convert.
 - **Command-line mode**: `tamga convert package.deb --to rpm [--install]` (see `tamga --help-cli`).
 - **Old Turkic runes**: while TAMGA works, the words *tamga* and *türük* written in the Orkhon
-  script light up around the seal.
+  script light up around the seal. With the rune button at the top, you can choose your own words:
+  TAMGA writes them in runes for you.
 
 ### Install TAMGA
 
@@ -178,7 +179,8 @@ dépendances pour chaque distribution.
 - **Moteur 100 % Rust** : aucun besoin de dpkg, rpmbuild ou makepkg pour convertir.
 - **Mode texte** : `tamga convert paquet.deb --to rpm [--install]` (voir `tamga --help-cli`).
 - **Runes turciques** : pendant le travail, les mots *tamga* et *türük* écrits en alphabet de
-  l'Orkhon s'illuminent autour du sceau.
+  l'Orkhon s'illuminent autour du sceau. Le bouton runique en haut permet de choisir vos propres
+  mots : TAMGA les écrit en runes pour vous.
 
 ### Installer TAMGA
 
@@ -297,7 +299,8 @@ bağımlılık çevirisiyle.
 - **%100 Rust motoru**: dönüştürmek için dpkg, rpmbuild veya makepkg gerekmez.
 - **Komut satırı modu**: `tamga convert paket.deb --to rpm [--install]` (bkz. `tamga --help-cli`).
 - **Köktürk runları**: TAMGA çalışırken, Orhun yazısıyla yazılmış *tamga* ve *türük* sözcükleri
-  mührün çevresinde parlar.
+  mührün çevresinde parlar. Üstteki run düğmesiyle kendi sözcüklerinizi seçebilirsiniz: TAMGA
+  onları sizin için runlarla yazar.
 
 ### TAMGA'yı kurun
 

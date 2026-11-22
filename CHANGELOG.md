@@ -37,6 +37,8 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/).
   Tcl…) est ajouté aux dépendances avec le bon nom de paquet pour la distribution cible.
 - Runes turciques animées pendant le travail : *tamga* et *türük* en alphabet de l'Orkhon,
   police Noto Sans Old Turkic (SIL Open Font License 1.1).
+- Fenêtre « Vos mots en runes » : vos propres mots, écrits automatiquement en runes de l'Orkhon
+  (formes dures et douces des consonnes, ligatures ng, nç, nt), avec aperçu ; ils défilent pendant le travail.
 
 ### Corrigé
 - Le clic sur la zone de dépôt ouvre la vraie fenêtre de choix de fichier (module dialog).

@@ -139,6 +139,7 @@
   "warn.ld_conf_added": "Les bibliothèques sont rangées dans un dossier inhabituel pour la cible : TAMGA a ajouté un fichier ld.so.conf.d pour qu'elles soient trouvées.",
   "warn.missing_deps": "Certaines dépendances n'ont pas pu être traduites.",
   "warn.scripts_included": "Les scripts d'origine sont inclus : vérifiez le bon fonctionnement après l'installation.",
+  "busy.runes": "« tamga » et « türük » écrits en runes turciques (alphabet de l'Orkhon)",
   "target.slack": "Slackware (paquet .txz / .tgz)",
   "target.tar": "Archive tar, à extraire à la racine /",
   "target.slp": "Stampede Linux (ancien format)",
@@ -164,5 +165,15 @@
   "warn.tar_no_uninstall": "Une archive tar s'installe en l'extrayant à la racine : elle ne pourra pas être désinstallée automatiquement.",
   "warn.tar_no_scripts": "Une archive tar ne peut pas contenir de scripts d'installation : ils n'ont pas été repris.",
   "warn.slp_arch": "Stampede ne connaît pas cette architecture : le paquet est marqué « toutes architectures ».",
-  "busy.runes": "« tamga » et « türük » écrits en runes turciques (alphabet de l'Orkhon)"
+  "runes.title": "Vos mots en runes",
+  "runes.help": "Écrivez un ou plusieurs mots, séparés par des virgules. TAMGA les écrit en runes turciques (alphabet de l'Orkhon) d'après la prononciation turque. Les sons qui n'existaient pas en vieux turc prennent la lettre la plus proche : f → p, v → b, h → k, c → ç, j → y.",
+  "runes.note": "Comme dans les inscriptions de l'Orkhon, les voyelles a et e ne s'écrivent qu'au début et à la fin du mot, et les runes se lisent de droite à gauche.",
+  "runes.placeholder": "tamga, türük",
+  "runes.reset": "Mots d'origine",
+  "runes.cancel": "Annuler",
+  "runes.save": "Enregistrer",
+  "runes.saved": "Vos runes sont enregistrées : elles apparaîtront pendant le travail.",
+  "runes.too_long": "C'est trop long : {max} runes au maximum ({n} pour l'instant).",
+  "runes.empty": "Écrivez au moins un mot.",
+  "busy.runes_words": "Vos mots en runes turciques (alphabet de l'Orkhon) : {words}"
 }

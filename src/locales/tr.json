@@ -139,6 +139,7 @@
   "warn.ld_conf_added": "Kütüphaneler hedef için alışılmadık bir klasörde: TAMGA bulunabilmeleri için bir ld.so.conf.d dosyası ekledi.",
   "warn.missing_deps": "Bazı bağımlılıklar çevrilemedi.",
   "warn.scripts_included": "Özgün betikler eklendi: kurulumdan sonra her şeyin çalıştığını denetleyin.",
+  "busy.runes": "« tamga » ve « türük », Eski Türk runik yazısıyla (Orhun alfabesi)",
   "target.slack": "Slackware (.txz / .tgz paketi)",
   "target.tar": "Tar arşivi, kök dizine (/) açılır",
   "target.slp": "Stampede Linux (eski biçim)",
@@ -164,5 +165,15 @@
   "warn.tar_no_uninstall": "Tar arşivi kök dizine açılarak kurulur: otomatik olarak kaldırılamaz.",
   "warn.tar_no_scripts": "Tar arşivi kurulum betiği içeremez: betikler aktarılmadı.",
   "warn.slp_arch": "Stampede bu mimariyi tanımıyor: paket « tüm mimariler » olarak işaretlendi.",
-  "busy.runes": "« tamga » ve « türük », Eski Türk runik yazısıyla (Orhun alfabesi)"
+  "runes.title": "Runlarla sözcükleriniz",
+  "runes.help": "Bir veya birkaç sözcük yazın, virgülle ayırın. TAMGA bunları Türkçe okunuşa göre Köktürk runlarıyla (Orhun yazısı) yazar. Eski Türkçede bulunmayan sesler en yakın harfle yazılır: f → p, v → b, h → k, c → ç, j → y.",
+  "runes.note": "Orhun yazıtlarında olduğu gibi a ve e ünlüleri yalnızca sözcüğün başında ve sonunda yazılır; runlar sağdan sola okunur.",
+  "runes.placeholder": "tamga, türük",
+  "runes.reset": "Özgün sözcükler",
+  "runes.cancel": "Vazgeç",
+  "runes.save": "Kaydet",
+  "runes.saved": "Runlarınız kaydedildi: TAMGA çalışırken görünecekler.",
+  "runes.too_long": "Çok uzun: en fazla {max} run (şu an {n}).",
+  "runes.empty": "En az bir sözcük yazın.",
+  "busy.runes_words": "Köktürk runlarıyla (Orhun yazısı) sözcükleriniz: {words}"
 }

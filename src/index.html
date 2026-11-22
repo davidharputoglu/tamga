@@ -16,6 +16,9 @@
     </div>
     <div class="topbar-right">
       <span class="sys-badge" id="sys-badge" hidden></span>
+      <button class="icon-btn rune-btn" id="btn-runes" data-i18n-title="runes.title" title="Vos mots en runes">
+        <span aria-hidden="true">&#x10C43;</span>
+      </button>
       <button class="icon-btn" id="btn-about" data-i18n-title="about.title" title="À propos">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
       </button>
@@ -65,7 +68,7 @@
     <section class="screen" id="screen-busy" hidden>
       <div class="busy">
         <!-- Runes turciques (alphabet de l'Orkhon) qui tournent autour du sceau pendant le travail -->
-        <div class="rune-stage" data-i18n-title="busy.runes" title="">
+        <div class="rune-stage">
           <div class="rune-ring" id="rune-ring" aria-hidden="true"></div>
           <div class="seal-spinner"><img src="assets/logo.png" alt=""></div>
         </div>
@@ -255,10 +258,28 @@
     <p class="muted small" id="cache-msg"></p>
   </dialog>
 
+  <!-- Vos mots en runes turciques -->
+  <dialog id="runes-dialog" class="about runes-dialog">
+    <h2 class="runes-heading" data-i18n="runes.title">Vos mots en runes</h2>
+    <p class="muted small" data-i18n="runes.help"></p>
+    <label class="field">
+      <input type="text" id="runes-input" maxlength="160" autocomplete="off" spellcheck="false" data-i18n-placeholder="runes.placeholder">
+    </label>
+    <p class="runes-count small" id="runes-count"></p>
+    <div class="runes-preview" id="runes-preview" aria-live="polite"></div>
+    <p class="muted small" data-i18n="runes.note"></p>
+    <div class="actions">
+      <button class="btn ghost small" id="btn-runes-reset" data-i18n="runes.reset">Mots d'origine</button>
+      <button class="btn ghost small" id="btn-runes-cancel" data-i18n="runes.cancel">Annuler</button>
+      <button class="btn primary small" id="btn-runes-save" data-i18n="runes.save">Enregistrer</button>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" hidden></div>
 
   <script src="i18n.js"></script>
   <script src="dropzone.js"></script>
+  <script src="runes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

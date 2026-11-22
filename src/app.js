@@ -71,29 +71,102 @@ function toast(msg) {
 }
 
 // ---------------------------------------------------------------- runes
-// « tamga : türük » en écriture de l'Orkhon (vieux turc), lue de droite à gauche.
-const RUNE_TAMGA = "\u{10C43}\u{10C22}\u{10C0D}\u{10C00}";   // 𐱃𐰢𐰍𐰀  t-m-g-a
-const RUNE_TURUK = "\u{10C45}\u{10C07}\u{10C3C}\u{10C1C}";   // 𐱅𐰇𐰼𐰜  t-ü-r-ük
+// Mots écrits en runes turciques (alphabet de l'Orkhon) autour du sceau pendant le travail.
+// Par défaut « tamga : türük » ; l'utilisateur peut choisir ses propres mots (runes.js).
+const runeState = { words: [], index: 0, timer: null };
+
+function runeTitle() {
+  const latin = runeState.words.map(w => w.latin).join(", ");
+  return loadRuneText() === RUNE_DEFAULT ? t("busy.runes") : t("busy.runes_words", { words: latin });
+}
+
 function buildRunes() {
   const ring = $("rune-ring");
-  if (!ring || ring.childElementCount) return;
-  // Anneau : « tamga : türük : » répété, comme l'anneau gravé du logo.
-  const unit = Array.from(RUNE_TAMGA).concat([":"], Array.from(RUNE_TURUK), [":"]);
-  const glyphs = unit.concat(unit, unit);            // 30 signes
+  if (!ring) return;
+  runeState.words = parseRuneWords(loadRuneText());
+  if (!runeState.words.length) runeState.words = parseRuneWords(RUNE_DEFAULT);
+  runeState.index = 0;
+  ring.innerHTML = "";
+  // Anneau : les mots séparés par « : », répétés pour faire le tour, comme l'anneau du logo.
+  const unit = [];
+  runeState.words.forEach(w => { unit.push(...Array.from(w.runes), ":"); });
+  const reps = Math.max(1, Math.round(30 / unit.length));
+  const glyphs = [];
+  for (let r = 0; r < reps; r++) glyphs.push(...unit);
   const n = glyphs.length;
   ring.style.setProperty("--step", (360 / n) + "deg");
   ring.style.setProperty("--delay", (3 / n) + "s");  // une vague de lumière fait le tour en 3 s
+  ring.style.setProperty("--size", Math.max(12, Math.min(21, Math.floor(21 * 32 / n))) + "px");
   glyphs.forEach((g, i) => {
     const sp = el("span", "", g);
     sp.style.setProperty("--i", i);
     ring.appendChild(sp);
   });
+  showRuneWord();
+  const stage = document.querySelector(".rune-stage");
+  if (stage) stage.title = runeTitle();
+}
+
+/** Affiche le mot courant sous le sceau, lettre par lettre (de droite à gauche). */
+function showRuneWord() {
   const word = $("rune-word");
-  Array.from(RUNE_TAMGA).forEach((g, i) => {
+  const w = runeState.words[runeState.index % runeState.words.length];
+  word.innerHTML = "";
+  word.classList.remove("fade");
+  void word.offsetWidth; // relance l'animation d'apparition
+  word.classList.add("fade");
+  Array.from(w.runes).forEach((g, i) => {
     const sp = el("span", "", g);
     sp.style.setProperty("--i", i);
     word.appendChild(sp);
   });
+}
+
+/** Plusieurs mots : ils défilent un par un pendant le travail. */
+function startRuneWords() {
+  clearInterval(runeState.timer);
+  runeState.index = 0;
+  showRuneWord();
+  if (runeState.words.length < 2) return;
+  runeState.timer = setInterval(() => { runeState.index++; showRuneWord(); }, 4000);
+}
+
+// Fenêtre « Vos mots en runes »
+function renderRunePreview() {
+  const words = parseRuneWords($("runes-input").value);
+  const count = runeCount(words);
+  const box = $("runes-preview");
+  box.innerHTML = "";
+  words.forEach(w => {
+    const fig = el("figure");
+    fig.appendChild(el("span", "r", w.runes));
+    fig.appendChild(el("figcaption", "", w.latin));
+    box.appendChild(fig);
+  });
+  const c = $("runes-count");
+  let bad = false;
+  if (!words.length) { c.textContent = t("runes.empty"); bad = true; }
+  else if (count > RUNE_MAX || words.length > RUNE_MAX_WORDS) {
+    c.textContent = t("runes.too_long", { max: RUNE_MAX, n: count }); bad = true;
+  } else c.textContent = count + " / " + RUNE_MAX;
+  c.classList.toggle("bad", bad);
+  $("btn-runes-save").disabled = bad;
+}
+
+function openRunes() {
+  $("runes-input").value = loadRuneText();
+  renderRunePreview();
+  $("runes-dialog").showModal();
+  $("runes-input").focus();
+}
+
+function saveRunes() {
+  const text = parseRuneWords($("runes-input").value).map(w => w.latin).join(", ");
+  if (!text) return;
+  saveRuneText(text);
+  buildRunes();
+  $("runes-dialog").close();
+  toast(t("runes.saved"));
 }
 
 // ---------------------------------------------------------------- attente
@@ -108,9 +181,10 @@ function busy(titleKey, file) {
     const s = Math.floor((Date.now() - start) / 1000);
     $("busy-time").textContent = s >= 3 ? "(" + s + " s)" : "";
   }, 500);
+  startRuneWords();
   show("screen-busy");
 }
-function stopBusy() { clearInterval(state.busyTimer); }
+function stopBusy() { clearInterval(state.busyTimer); clearInterval(runeState.timer); }
 
 // ---------------------------------------------------------------- erreurs
 function showError(err) {
@@ -483,6 +557,12 @@ function bind() {
     if (TAURI && TAURI.opener) TAURI.opener.revealItemInDir(state.result.path).catch(err => console.error(err));
   });
   $("btn-other-format").addEventListener("click", () => { renderPackage(); show("screen-package"); });
+  $("btn-runes").addEventListener("click", openRunes);
+  $("runes-input").addEventListener("input", renderRunePreview);
+  $("runes-input").addEventListener("keydown", e => { if (e.key === "Enter" && !$("btn-runes-save").disabled) { e.preventDefault(); saveRunes(); } });
+  $("btn-runes-save").addEventListener("click", saveRunes);
+  $("btn-runes-cancel").addEventListener("click", () => $("runes-dialog").close());
+  $("btn-runes-reset").addEventListener("click", () => { $("runes-input").value = RUNE_DEFAULT; renderRunePreview(); });
   $("btn-about").addEventListener("click", () => { $("cache-msg").textContent = ""; $("about").showModal(); });
   $("btn-about-close").addEventListener("click", () => $("about").close());
   $("btn-legal").addEventListener("click", () => { $("about").close(); show("screen-legal"); });
@@ -496,6 +576,9 @@ function bind() {
       $("sys-badge").textContent = t("home.system") + " : " + systemLabel();
     }
     if (!$("screen-busy").hidden && $("busy-title").dataset.key) $("busy-title").textContent = t($("busy-title").dataset.key);
+    const stage = document.querySelector(".rune-stage");
+    if (stage) stage.title = runeTitle();
+    if ($("runes-dialog").open) renderRunePreview();
     if (state.analysis && !$("screen-package").hidden) {
       const keepTarget = state.target;
       renderPackage();

@@ -139,6 +139,7 @@
   "warn.ld_conf_added": "Las bibliotecas están en una carpeta poco habitual para el destino: TAMGA añadió un archivo ld.so.conf.d para que se encuentren.",
   "warn.missing_deps": "Algunas dependencias no se pudieron traducir.",
   "warn.scripts_included": "Los scripts originales están incluidos: compruebe que todo funciona después de la instalación.",
+  "busy.runes": "«tamga» y «türük» escritos en runas túrquicas antiguas (alfabeto del Orjón)",
   "target.slack": "Slackware (paquete .txz / .tgz)",
   "target.tar": "Archivo tar, para extraer en la raíz /",
   "target.slp": "Stampede Linux (formato antiguo)",
@@ -164,5 +165,15 @@
   "warn.tar_no_uninstall": "Un archivo tar se instala extrayéndolo en la raíz: no se podrá desinstalar automáticamente.",
   "warn.tar_no_scripts": "Un archivo tar no puede contener scripts de instalación: no se han conservado.",
   "warn.slp_arch": "Stampede no conoce esta arquitectura: el paquete se marca como «todas las arquitecturas».",
-  "busy.runes": "«tamga» y «türük» escritos en runas túrquicas antiguas (alfabeto del Orjón)"
+  "runes.title": "Sus palabras en runas",
+  "runes.help": "Escriba una o varias palabras, separadas por comas. TAMGA las escribe en runas túrquicas antiguas (alfabeto del Orjón) según la pronunciación turca. Los sonidos que no existían en el túrquico antiguo toman la letra más cercana: f → p, v → b, h → k, c → ç, j → y.",
+  "runes.note": "Como en las inscripciones del Orjón, las vocales a y e solo se escriben al principio y al final de la palabra, y las runas se leen de derecha a izquierda.",
+  "runes.placeholder": "tamga, türük",
+  "runes.reset": "Palabras originales",
+  "runes.cancel": "Cancelar",
+  "runes.save": "Guardar",
+  "runes.saved": "Sus runas se han guardado: aparecerán mientras TAMGA trabaja.",
+  "runes.too_long": "Demasiado largo: {max} runas como máximo ({n} ahora).",
+  "runes.empty": "Escriba al menos una palabra.",
+  "busy.runes_words": "Sus palabras en runas túrquicas antiguas (alfabeto del Orjón): {words}"
 }
