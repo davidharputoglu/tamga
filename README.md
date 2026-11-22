@@ -52,13 +52,16 @@ Smart Linux package converter, like Alien but with a graphical interface: **.deb
   the administrator password.
 - **Faithful conversion**: permissions, owners, symbolic links and configuration files are preserved.
 - **Dependencies translated** for the target distribution: TAMGA reads the libraries the programs
-  really use (ELF analysis), asks the local system (is the package installed? available in the
-  repositories?), then uses its correspondence tables and, optionally, Repology.
+  really use (ELF analysis) and the interpreters its scripts need (Python, Perl, Ruby, Node…),
+  asks the local system (is the package installed? available in the repositories?), then uses its
+  correspondence tables and, optionally, Repology.
 - **Self-contained .sh installer**: checks the architecture, glibc and libraries, suggests the right
   install command (apt, dnf, zypper, pacman), backs up replaced files and provides an uninstaller.
 - **Original install scripts** adapted to the target format (advanced option, off by default).
 - **100% Rust engine**: no need for dpkg, rpmbuild or makepkg to convert.
 - **Command-line mode**: `tamga convert package.deb --to rpm [--install]` (see `tamga --help-cli`).
+- **Old Turkic runes**: while TAMGA works, the words *tamga* and *türük* written in the Orkhon
+  script light up around the seal.
 
 ### Install TAMGA
 
@@ -134,6 +137,8 @@ assets/        original logo
 
 MIT — see [LICENSE](LICENSE) · Disclaimer: [DISCLAIMER.md](DISCLAIMER.md) ·
 Privacy: [PRIVACY.md](PRIVACY.md) (these two documents are in French).
+The runes use the Noto Sans Old Turkic font, under the
+[SIL Open Font License 1.1](src/assets/fonts/OFL-NotoSansOldTurkic.txt).
 
 ---
 
@@ -163,14 +168,17 @@ dépendances pour chaque distribution.
   demandant le mot de passe administrateur.
 - **Conversion fidèle** : droits, propriétaires, liens symboliques et fichiers de configuration sont conservés.
 - **Dépendances traduites** pour la distribution cible : TAMGA lit les bibliothèques réellement
-  utilisées par les programmes (analyse ELF), interroge le système local (paquet installé ?
-  disponible dans les dépôts ?), puis ses tables de correspondance, et en option Repology.
+  utilisées par les programmes (analyse ELF) et les interpréteurs dont ses scripts ont besoin
+  (Python, Perl, Ruby, Node…), interroge le système local (paquet installé ? disponible dans les
+  dépôts ?), puis ses tables de correspondance, et en option Repology.
 - **Installateur .sh autonome** : vérifie l'architecture, la glibc et les bibliothèques, propose la
   commande d'installation adaptée (apt, dnf, zypper, pacman), garde une sauvegarde des fichiers
   remplacés et fournit un désinstallateur.
 - **Scripts d'installation** d'origine adaptés au format cible (option avancée, désactivée par défaut).
 - **Moteur 100 % Rust** : aucun besoin de dpkg, rpmbuild ou makepkg pour convertir.
 - **Mode texte** : `tamga convert paquet.deb --to rpm [--install]` (voir `tamga --help-cli`).
+- **Runes turciques** : pendant le travail, les mots *tamga* et *türük* écrits en alphabet de
+  l'Orkhon s'illuminent autour du sceau.
 
 ### Installer TAMGA
 
@@ -247,6 +255,8 @@ assets/        logo d'origine
 
 MIT — voir [LICENSE](LICENSE) · Avertissement : [DISCLAIMER.md](DISCLAIMER.md) ·
 Confidentialité : [PRIVACY.md](PRIVACY.md).
+Les runes utilisent la police Noto Sans Old Turkic, sous
+[licence SIL Open Font 1.1](src/assets/fonts/OFL-NotoSansOldTurkic.txt).
 
 ---
 
@@ -277,14 +287,17 @@ bağımlılık çevirisiyle.
 - **Aslına uygun dönüştürme**: izinler, dosya sahipleri, sembolik bağlantılar ve yapılandırma
   dosyaları korunur.
 - **Hedef dağıtıma göre çevrilen bağımlılıklar**: TAMGA, programların gerçekten kullandığı
-  kütüphaneleri okur (ELF analizi), yerel sistemi sorgular (paket kurulu mu? depolarda var mı?),
-  ardından kendi eşleştirme tablolarına ve isteğe bağlı olarak Repology'ye başvurur.
+  kütüphaneleri (ELF analizi) ve betiklerin ihtiyaç duyduğu yorumlayıcıları (Python, Perl, Ruby,
+  Node…) okur, yerel sistemi sorgular (paket kurulu mu? depolarda var mı?), ardından kendi
+  eşleştirme tablolarına ve isteğe bağlı olarak Repology'ye başvurur.
 - **Bağımsız .sh kurulum dosyası**: mimariyi, glibc sürümünü ve kütüphaneleri denetler, uygun
   kurulum komutunu önerir (apt, dnf, zypper, pacman), değiştirilen dosyaları yedekler ve bir
   kaldırma aracı sunar.
 - **Orijinal kurulum betikleri** hedef biçime uyarlanır (gelişmiş seçenek, varsayılan olarak kapalı).
 - **%100 Rust motoru**: dönüştürmek için dpkg, rpmbuild veya makepkg gerekmez.
 - **Komut satırı modu**: `tamga convert paket.deb --to rpm [--install]` (bkz. `tamga --help-cli`).
+- **Köktürk runları**: TAMGA çalışırken, Orhun yazısıyla yazılmış *tamga* ve *türük* sözcükleri
+  mührün çevresinde parlar.
 
 ### TAMGA'yı kurun
 
@@ -360,3 +373,5 @@ assets/        orijinal logo
 
 MIT — bkz. [LICENSE](LICENSE) · Sorumluluk reddi: [DISCLAIMER.md](DISCLAIMER.md) ·
 Gizlilik: [PRIVACY.md](PRIVACY.md) (bu iki belge Fransızcadır).
+Runlar, [SIL Open Font License 1.1](src/assets/fonts/OFL-NotoSansOldTurkic.txt) lisanslı
+Noto Sans Old Turkic yazı tipini kullanır.

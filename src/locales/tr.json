@@ -116,7 +116,7 @@
   "about.privacy": "Gizlilik",
   "about.privacy_text": "Kişisel veri yok, telemetri yok, reklam yok. Çevrimiçi aramada Repology'ye yalnızca paket adları gönderilir.",
   "about.credits_title": "Teknolojiler",
-  "about.credits": "Rust, Tauri ve özgür kütüphaneler tar, flate2, xz2, zstd, goblin.",
+  "about.credits": "Rust, Tauri ve özgür kütüphaneler tar, flate2, liblzma, zstd, bzip2, lz4_flex, goblin. Runlar: Noto Sans Old Turkic yazı tipi (SIL Open Font License 1.1).",
   "about.cache": "Arama önbelleğini temizle",
   "about.cache_done": "Önbellek temizlendi.",
   "about.close": "Kapat",
@@ -163,5 +163,6 @@
   "warn.tar_relocated": "Bu arşiv bir Linux sistemi gibi düzenlenmemiş: içeriği /opt/<ad> içine kurulacak, /usr/bin içinde kısayollar oluşturulacak.",
   "warn.tar_no_uninstall": "Tar arşivi kök dizine açılarak kurulur: otomatik olarak kaldırılamaz.",
   "warn.tar_no_scripts": "Tar arşivi kurulum betiği içeremez: betikler aktarılmadı.",
-  "warn.slp_arch": "Stampede bu mimariyi tanımıyor: paket « tüm mimariler » olarak işaretlendi."
+  "warn.slp_arch": "Stampede bu mimariyi tanımıyor: paket « tüm mimariler » olarak işaretlendi.",
+  "busy.runes": "« tamga » ve « türük », Eski Türk runik yazısıyla (Orhun alfabesi)"
 }

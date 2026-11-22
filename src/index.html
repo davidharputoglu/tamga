@@ -64,7 +64,12 @@
     <!-- 3. Attente -->
     <section class="screen" id="screen-busy" hidden>
       <div class="busy">
-        <div class="seal-spinner"><img src="assets/logo.png" alt=""></div>
+        <!-- Runes turciques (alphabet de l'Orkhon) qui tournent autour du sceau pendant le travail -->
+        <div class="rune-stage" data-i18n-title="busy.runes" title="">
+          <div class="rune-ring" id="rune-ring" aria-hidden="true"></div>
+          <div class="seal-spinner"><img src="assets/logo.png" alt=""></div>
+        </div>
+        <p class="rune-word" id="rune-word" dir="rtl" lang="otk" aria-hidden="true"></p>
         <p class="busy-title" id="busy-title"></p>
         <p class="muted" id="busy-file"></p>
         <p class="muted small"><span data-i18n="busy.wait"></span> <span id="busy-time"></span></p>

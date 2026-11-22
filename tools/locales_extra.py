@@ -2,6 +2,8 @@
 # Ces valeurs remplacent aussi err.unknown_format et err.archive.
 EXTRA = {
  "fr": {
+  "about.credits": 'Rust, Tauri, et les bibliothèques libres tar, flate2, liblzma, zstd, bzip2, lz4_flex, goblin. Runes : police Noto Sans Old Turkic (SIL Open Font License 1.1).',
+  "busy.runes": "« tamga » et « türük » écrits en runes turciques (alphabet de l'Orkhon)",
   "target.slack": "Slackware (paquet .txz / .tgz)",
   "target.tar": "Archive tar, à extraire à la racine /",
   "target.slp": "Stampede Linux (ancien format)",
@@ -31,6 +33,8 @@ EXTRA = {
   "warn.slp_arch": "Stampede ne connaît pas cette architecture : le paquet est marqué « toutes architectures ».",
  },
  "en": {
+  "about.credits": 'Rust, Tauri, and the free libraries tar, flate2, liblzma, zstd, bzip2, lz4_flex, goblin. Runes: Noto Sans Old Turkic font (SIL Open Font License 1.1).',
+  "busy.runes": '“tamga” and “türük” written in Old Turkic runes (Orkhon script)',
   "target.slack": "Slackware (.txz / .tgz package)",
   "target.tar": "Tar archive, to extract at the root /",
   "target.slp": "Stampede Linux (legacy format)",
@@ -60,6 +64,8 @@ EXTRA = {
   "warn.slp_arch": "Stampede does not know this architecture: the package is marked “all architectures”.",
  },
  "tr": {
+  "about.credits": 'Rust, Tauri ve özgür kütüphaneler tar, flate2, liblzma, zstd, bzip2, lz4_flex, goblin. Runlar: Noto Sans Old Turkic yazı tipi (SIL Open Font License 1.1).',
+  "busy.runes": '« tamga » ve « türük », Eski Türk runik yazısıyla (Orhun alfabesi)',
   "target.slack": "Slackware (.txz / .tgz paketi)",
   "target.tar": "Tar arşivi, kök dizine (/) açılır",
   "target.slp": "Stampede Linux (eski biçim)",
@@ -89,6 +95,8 @@ EXTRA = {
   "warn.slp_arch": "Stampede bu mimariyi tanımıyor: paket « tüm mimariler » olarak işaretlendi.",
  },
  "ar": {
+  "about.credits": 'Rust وTauri والمكتبات الحرة tar وflate2 وliblzma وzstd وbzip2 وlz4_flex وgoblin. الرموز الرونية: خط Noto Sans Old Turkic \u200f(SIL Open Font License 1.1).',
+  "busy.runes": '«tamga» و«türük» مكتوبتان بالحروف الرونية التركية القديمة (أبجدية أورخون)',
   "target.slack": "Slackware (حزمة ‎.txz / ‎.tgz)",
   "target.tar": "أرشيف tar يُفكّ في الجذر /",
   "target.slp": "Stampede Linux (تنسيق قديم)",
@@ -118,6 +126,8 @@ EXTRA = {
   "warn.slp_arch": "لا يعرف Stampede هذه المعمارية: عُلّمت الحزمة بأنها «لكل المعماريات».",
  },
  "it": {
+  "about.credits": 'Rust, Tauri e le librerie libere tar, flate2, liblzma, zstd, bzip2, lz4_flex, goblin. Rune: carattere Noto Sans Old Turkic (SIL Open Font License 1.1).',
+  "busy.runes": "«tamga» e «türük» scritti in rune turciche antiche (alfabeto dell'Orkhon)",
   "target.slack": "Slackware (pacchetto .txz / .tgz)",
   "target.tar": "Archivio tar, da estrarre nella radice /",
   "target.slp": "Stampede Linux (formato storico)",
@@ -147,6 +157,8 @@ EXTRA = {
   "warn.slp_arch": "Stampede non conosce questa architettura: il pacchetto è contrassegnato come «tutte le architetture».",
  },
  "pt": {
+  "about.credits": 'Rust, Tauri e as bibliotecas livres tar, flate2, liblzma, zstd, bzip2, lz4_flex, goblin. Runas: fonte Noto Sans Old Turkic (SIL Open Font License 1.1).',
+  "busy.runes": '«tamga» e «türük» escritos em runas turcas antigas (alfabeto de Orkhon)',
   "target.slack": "Slackware (pacote .txz / .tgz)",
   "target.tar": "Arquivo tar, para extrair na raiz /",
   "target.slp": "Stampede Linux (formato antigo)",
@@ -176,6 +188,8 @@ EXTRA = {
   "warn.slp_arch": "O Stampede não conhece esta arquitetura: o pacote foi marcado como «todas as arquiteturas».",
  },
  "es": {
+  "about.credits": 'Rust, Tauri y las bibliotecas libres tar, flate2, liblzma, zstd, bzip2, lz4_flex, goblin. Runas: fuente Noto Sans Old Turkic (SIL Open Font License 1.1).',
+  "busy.runes": '«tamga» y «türük» escritos en runas túrquicas antiguas (alfabeto del Orjón)',
   "target.slack": "Slackware (paquete .txz / .tgz)",
   "target.tar": "Archivo tar, para extraer en la raíz /",
   "target.slp": "Stampede Linux (formato antiguo)",

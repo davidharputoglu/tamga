@@ -116,7 +116,7 @@
   "about.privacy": "Privacy",
   "about.privacy_text": "No personal data, no telemetry, no ads. For online lookups, only package names are sent to Repology.",
   "about.credits_title": "Technologies",
-  "about.credits": "Rust, Tauri, and the free libraries tar, flate2, xz2, zstd, goblin.",
+  "about.credits": "Rust, Tauri, and the free libraries tar, flate2, liblzma, zstd, bzip2, lz4_flex, goblin. Runes: Noto Sans Old Turkic font (SIL Open Font License 1.1).",
   "about.cache": "Clear the lookup cache",
   "about.cache_done": "Cache cleared.",
   "about.close": "Close",
@@ -163,5 +163,6 @@
   "warn.tar_relocated": "This archive is not laid out like a Linux system: its contents will be installed in /opt/<name>, with shortcuts in /usr/bin.",
   "warn.tar_no_uninstall": "A tar archive is installed by extracting it at the root: it cannot be uninstalled automatically.",
   "warn.tar_no_scripts": "A tar archive cannot contain installation scripts: they were not carried over.",
-  "warn.slp_arch": "Stampede does not know this architecture: the package is marked “all architectures”."
+  "warn.slp_arch": "Stampede does not know this architecture: the package is marked “all architectures”.",
+  "busy.runes": "“tamga” and “türük” written in Old Turkic runes (Orkhon script)"
 }

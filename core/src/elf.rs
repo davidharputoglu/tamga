@@ -31,6 +31,29 @@ pub struct ElfInfo {
     pub glibc: Option<String>,
     /// Version maximale de libstdc++ demandée (ex. « 3.4.30 »).
     pub glibcxx: Option<String>,
+    /// Interpréteurs des scripts du paquet (« #!/usr/bin/perl » → « /usr/bin/perl »),
+    /// hors shell de base et hors programmes fournis par le paquet.
+    #[serde(default)]
+    pub interpreters: BTreeSet<String>,
+}
+
+/// Interpréteur d'un script à partir de sa première ligne « #! ».
+/// « #!/usr/bin/env python3 » → « /usr/bin/python3 » ; « #!/bin/perl -w » → « /usr/bin/perl ».
+pub fn shebang_interpreter(head: &[u8]) -> Option<String> {
+    let line = head.strip_prefix(b"#!")?;
+    let end = line.iter().position(|&c| c == b'\n').unwrap_or(line.len());
+    let line = String::from_utf8_lossy(&line[..end]).to_string();
+    let mut words = line.split_whitespace();
+    let mut prog = words.next()?.to_string();
+    if prog.ends_with("/env") {
+        // env peut recevoir des options (-S) : on prend le premier mot qui n'en est pas une.
+        prog = words.find(|w| !w.starts_with('-') && !w.contains('='))?.to_string();
+    }
+    let cmd = prog.rsplit('/').next().unwrap_or(&prog).to_string();
+    if cmd.is_empty() || matches!(cmd.as_str(), "sh" | "bash" | "dash" | "false" | "true") {
+        return None;
+    }
+    Some(format!("/usr/bin/{cmd}"))
 }
 
 fn machine_name(m: u16) -> Option<&'static str> {
@@ -65,15 +88,28 @@ pub fn scan(tree: &Tree) -> ElfInfo {
     let mut info = ElfInfo::default();
     let mut all_needed: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut machines: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut interpreters: BTreeSet<String> = BTreeSet::new();
     for (path, e) in tree.entries.iter() {
         let Kind::File(blob) = &e.kind else { continue };
-        if blob.size < 64 {
+        if blob.size < 4 {
             continue;
         }
         // Lecture rapide de l'en-tête avant de charger tout le fichier.
         let Ok(mut f) = tree.store.open(blob) else { continue };
-        let mut magic = [0u8; 4];
-        if f.read_exact(&mut magic).is_err() || &magic != b"\x7fELF" {
+        let mut head = [0u8; 256];
+        let n = f.read(&mut head).unwrap_or(0);
+        let head = &head[..n];
+        if head.starts_with(b"#!") {
+            // Script exécutable : on note son interpréteur (sauf exemples de documentation).
+            let doc = path.starts_with("usr/share/doc/") || path.contains("/examples/") || path.contains("/test/") || path.contains("/tests/");
+            if e.mode & 0o111 != 0 && !doc {
+                if let Some(i) = shebang_interpreter(head) {
+                    interpreters.insert(i);
+                }
+            }
+            continue;
+        }
+        if blob.size < 64 || !head.starts_with(b"\x7fELF") {
             continue;
         }
         drop(f);
@@ -121,6 +157,15 @@ pub fn scan(tree: &Tree) -> ElfInfo {
         }
     }
     info.machine = machines.into_iter().max_by_key(|(_, n)| *n).map(|(m, _)| m.to_string());
+    // Un interpréteur fourni par le paquet lui-même n'est pas une dépendance.
+    info.interpreters = interpreters
+        .into_iter()
+        .filter(|i| {
+            let rel = i.trim_start_matches('/');
+            let alt = rel.replacen("usr/bin/", "bin/", 1);
+            tree.get(rel).is_none() && tree.get(&alt).is_none()
+        })
+        .collect();
     for (lib, vers) in all_needed {
         if IGNORED.contains(&lib.as_str()) || info.provided.contains(&lib) {
             continue;
@@ -167,6 +212,16 @@ pub fn max_symbol_versions(vers: &BTreeSet<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shebangs() {
+        assert_eq!(shebang_interpreter(b"#!/usr/bin/perl -w\nprint 1;"), Some("/usr/bin/perl".into()));
+        assert_eq!(shebang_interpreter(b"#!/usr/bin/env python3\n"), Some("/usr/bin/python3".into()));
+        assert_eq!(shebang_interpreter(b"#!/usr/bin/env -S node --x\n"), Some("/usr/bin/node".into()));
+        assert_eq!(shebang_interpreter(b"#!/bin/sh\n"), None);
+        assert_eq!(shebang_interpreter(b"#! /bin/bash -e\n"), None);
+        assert_eq!(shebang_interpreter(b"no"), None);
+    }
 
     #[test]
     fn rpm_names() {

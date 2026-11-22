@@ -300,6 +300,13 @@ pub const TABLE: &[Row] = &[
     ("", "python3-xdg", "python3-pyxdg", "python3-pyxdg", "python-pyxdg"),
     ("", "perl", "perl", "perl", "perl"),
     ("", "nodejs", "nodejs", "nodejs", "nodejs"),
+    ("", "ruby", "ruby", "ruby", "ruby"),
+    ("", "php-cli", "php-cli", "php8", "php"),
+    ("", "lua5.4", "lua", "lua54", "lua"),
+    ("", "tcl", "tcl", "tcl", "tcl"),
+    ("", "tk", "tk", "tk", "tk"),
+    ("", "zsh", "zsh", "zsh", "zsh"),
+    ("", "fish", "fish", "fish", "fish"),
     ("", "default-jre", "java-21-openjdk", "java-21-openjdk", "jre-openjdk"),
     ("", "xdg-utils", "xdg-utils", "xdg-utils", "xdg-utils"),
     ("", "desktop-file-utils", "desktop-file-utils", "desktop-file-utils", "desktop-file-utils"),
@@ -451,9 +458,26 @@ pub fn debian_convention(soname: &str) -> Option<String> {
 /// Paquet correspondant à une commande requise par chemin (« /usr/bin/python3 »).
 pub fn package_for_file(path: &str, to: Family) -> Option<&'static str> {
     let cmd = path.rsplit('/').next().unwrap_or(path);
+    // « python3.12 » → « python3 », « perl5.36 » → « perl »
+    let cmd = if cmd.starts_with("python3") {
+        "python3"
+    } else if cmd.starts_with("perl") {
+        "perl"
+    } else {
+        cmd
+    };
     let deb = match cmd {
         "python3" | "python" => "python3",
         "perl" => "perl",
+        "ruby" => "ruby",
+        "php" => "php-cli",
+        "lua" | "lua5.4" => "lua5.4",
+        "tclsh" => "tcl",
+        "wish" => "tk",
+        "awk" | "gawk" => "gawk",
+        "zsh" => "zsh",
+        "fish" => "fish",
+        "pwsh" => "powershell",
         "bash" => "bash",
         "node" | "nodejs" => "nodejs",
         "zenity" => "zenity",

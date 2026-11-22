@@ -33,6 +33,10 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/).
 - Bouton **Installer** et **Convertir et installer** (comme AlienGUI) : installation avec apt, dnf, zypper,
   pacman ou upgradepkg, mot de passe demandé par pkexec. En mode texte : `--install`.
 - Choix de la compression des archives tar et Slackware (`--compress` en mode texte).
+- Dépendances des scripts : l'interpréteur indiqué par « #! » (Python, Perl, Ruby, Node, PHP, Lua,
+  Tcl…) est ajouté aux dépendances avec le bon nom de paquet pour la distribution cible.
+- Runes turciques animées pendant le travail : *tamga* et *türük* en alphabet de l'Orkhon,
+  police Noto Sans Old Turkic (SIL Open Font License 1.1).
 
 ### Corrigé
 - Le clic sur la zone de dépôt ouvre la vraie fenêtre de choix de fichier (module dialog).

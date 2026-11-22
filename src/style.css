@@ -204,6 +204,61 @@ h1 {
   animation: spin 1.1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Runes turciques autour du sceau (police Noto Sans Old Turkic, SIL OFL 1.1) */
+@font-face {
+  font-family: "TAMGA Runes";
+  src: url("assets/fonts/NotoSansOldTurkic.ttf") format("truetype");
+  font-display: block;
+}
+.rune-stage {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 0 auto 6px;
+  display: grid;
+  place-items: center;
+}
+.rune-stage .seal-spinner { margin: 0; }
+.rune-stage .seal-spinner::after { display: none; }
+.rune-ring { position: absolute; inset: 0; animation: spin 30s linear infinite; }
+.rune-ring span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-family: "TAMGA Runes", sans-serif;
+  font-size: 21px;
+  line-height: 1;
+  color: var(--turquoise);
+  opacity: 0.22;
+  transform: translate(-50%, -50%) rotate(calc(var(--i) * var(--step))) translateY(-112px);
+  animation: rune-glow 3s ease-in-out infinite;
+  animation-delay: calc(var(--i) * var(--delay));
+}
+@keyframes rune-glow {
+  0%, 100% { opacity: 0.22; text-shadow: none; }
+  10% { opacity: 1; text-shadow: 0 0 6px var(--turquoise), 0 0 18px rgba(0, 225, 217, 0.65); }
+  35% { opacity: 0.4; text-shadow: none; }
+}
+.rune-word {
+  font-family: "TAMGA Runes", sans-serif;
+  font-size: 34px;
+  letter-spacing: 0.3em;
+  margin: 0 0 14px;
+  min-height: 42px;
+  direction: rtl;
+  unicode-bidi: isolate;
+}
+.rune-word span {
+  color: var(--turquoise);
+  opacity: 0.25;
+  animation: rune-glow 2.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.3s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rune-ring, .rune-ring span, .rune-word span { animation: none; }
+  .rune-ring span, .rune-word span { opacity: 0.7; }
+}
 @keyframes pulse { 50% { filter: brightness(1.35); } }
 .busy-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 6px; }
 

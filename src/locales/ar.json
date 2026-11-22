@@ -116,7 +116,7 @@
   "about.privacy": "الخصوصية",
   "about.privacy_text": "لا بيانات شخصية، ولا قياس عن بُعد، ولا إعلانات. عند البحث عبر الإنترنت تُرسَل أسماء الحزم فقط إلى Repology.",
   "about.credits_title": "التقنيات",
-  "about.credits": "Rust وTauri والمكتبات الحرة tar وflate2 وxz2 وzstd وgoblin.",
+  "about.credits": "Rust وTauri والمكتبات الحرة tar وflate2 وliblzma وzstd وbzip2 وlz4_flex وgoblin. الرموز الرونية: خط Noto Sans Old Turkic ‏(SIL Open Font License 1.1).",
   "about.cache": "مسح ذاكرة البحث المؤقتة",
   "about.cache_done": "تم مسح الذاكرة المؤقتة.",
   "about.close": "إغلاق",
@@ -163,5 +163,6 @@
   "warn.tar_relocated": "هذا الأرشيف غير مرتّب كنظام لينكس: سيُثبَّت محتواه في ‎/opt/<الاسم> مع اختصارات في ‎/usr/bin.",
   "warn.tar_no_uninstall": "يُثبَّت أرشيف tar بفكّه في الجذر: لا يمكن إزالته تلقائيًا.",
   "warn.tar_no_scripts": "لا يمكن أن يحتوي أرشيف tar على سكربتات تثبيت: لم يتم نقلها.",
-  "warn.slp_arch": "لا يعرف Stampede هذه المعمارية: عُلّمت الحزمة بأنها «لكل المعماريات»."
+  "warn.slp_arch": "لا يعرف Stampede هذه المعمارية: عُلّمت الحزمة بأنها «لكل المعماريات».",
+  "busy.runes": "«tamga» و«türük» مكتوبتان بالحروف الرونية التركية القديمة (أبجدية أورخون)"
 }

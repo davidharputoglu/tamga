@@ -34,8 +34,8 @@
     "publisher": "David HARPUTOGLU",
     "copyright": "Copyright (c) 2026 TAMGA - David HARPUTOGLU",
     "license": "MIT",
-    "shortDescription": "Convertisseur de paquets Linux (.deb, .rpm, Arch, .sh)",
-    "longDescription": "TAMGA convertit les paquets Linux d'un format à l'autre (.deb, .rpm, paquets Arch .pkg.tar.zst et installateurs .sh) et traduit leurs dépendances pour chaque distribution.",
+    "shortDescription": "Convertisseur de paquets Linux (.deb, .rpm, Arch, .sh, Slackware, tar, .slp)",
+    "longDescription": "TAMGA convertit les paquets Linux d'un format à l'autre (.deb, .rpm, paquets Arch .pkg.tar.zst, installateurs .sh, paquets Slackware, archives tar, Stampede .slp, lecture des paquets Solaris), traduit leurs dépendances pour chaque distribution et peut installer le résultat.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -44,6 +44,8 @@ pub enum Origin {
     Declared,
     /// Exigence de version de la glibc.
     Glibc,
+    /// Interpréteur d'un script (« #!/usr/bin/perl »).
+    Interpreter,
 }
 
 /// Une ligne du tableau des dépendances.
@@ -268,6 +270,48 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
                 keep: true,
             });
         }
+    }
+
+    // --- 2b. Interpréteurs des scripts (perl, python3…) : utile pour les formats
+    // sans dépendances déclarées (tar, Slackware, .slp, Solaris).
+    for interp in &elf.interpreters {
+        let mut item = DepItem {
+            source: format!("#!{interp}"),
+            origin: Origin::Interpreter,
+            target: None,
+            status: Status::Estimated,
+            method: "file".into(),
+            detail: None,
+            keep: true,
+        };
+        if ctx.format == Format::Rpm {
+            // rpm sait trouver le paquet qui fournit un fichier.
+            item.target = Some(Dependency::simple(interp));
+        } else if ctx.format.is_generic() {
+            item.target = Some(Dependency::simple(interp.rsplit('/').next().unwrap_or(interp)));
+            item.detail = mapping::package_for_file(interp, Family::Debian).map(|d| {
+                let f = mapping::package_for_file(interp, Family::Fedora).unwrap_or(d);
+                let a = mapping::package_for_file(interp, Family::Arch).unwrap_or(d);
+                format!("apt: {d} · dnf: {f} · pacman: {a}")
+            });
+        } else if let Some(n) = mapping::package_for_file(interp, fam) {
+            item.target = Some(Dependency::simple(n));
+        } else {
+            continue; // interpréteur inconnu : on ne devine pas
+        }
+        let on_disk = std::path::Path::new(interp).exists() || std::path::Path::new(&interp.replacen("/usr/bin/", "/bin/", 1)).exists();
+        if local || ctx.format.is_generic() {
+            item.status = if on_disk {
+                Status::Installed
+            } else if local && item.target.as_ref().and_then(|t| distro::available_in_repos(ctx.sys, &t.name)).is_some() {
+                Status::Available
+            } else if local {
+                Status::Missing
+            } else {
+                Status::Estimated
+            };
+        }
+        items.push(item);
     }
 
     // --- 3. Dépendances déclarées par le paquet d'origine

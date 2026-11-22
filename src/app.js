@@ -70,6 +70,32 @@ function toast(msg) {
   toast._t = setTimeout(() => { tEl.hidden = true; }, 1800);
 }
 
+// ---------------------------------------------------------------- runes
+// « tamga : türük » en écriture de l'Orkhon (vieux turc), lue de droite à gauche.
+const RUNE_TAMGA = "\u{10C43}\u{10C22}\u{10C0D}\u{10C00}";   // 𐱃𐰢𐰍𐰀  t-m-g-a
+const RUNE_TURUK = "\u{10C45}\u{10C07}\u{10C3C}\u{10C1C}";   // 𐱅𐰇𐰼𐰜  t-ü-r-ük
+function buildRunes() {
+  const ring = $("rune-ring");
+  if (!ring || ring.childElementCount) return;
+  // Anneau : « tamga : türük : » répété, comme l'anneau gravé du logo.
+  const unit = Array.from(RUNE_TAMGA).concat([":"], Array.from(RUNE_TURUK), [":"]);
+  const glyphs = unit.concat(unit, unit);            // 30 signes
+  const n = glyphs.length;
+  ring.style.setProperty("--step", (360 / n) + "deg");
+  ring.style.setProperty("--delay", (3 / n) + "s");  // une vague de lumière fait le tour en 3 s
+  glyphs.forEach((g, i) => {
+    const sp = el("span", "", g);
+    sp.style.setProperty("--i", i);
+    ring.appendChild(sp);
+  });
+  const word = $("rune-word");
+  Array.from(RUNE_TAMGA).forEach((g, i) => {
+    const sp = el("span", "", g);
+    sp.style.setProperty("--i", i);
+    word.appendChild(sp);
+  });
+}
+
 // ---------------------------------------------------------------- attente
 function busy(titleKey, file) {
   $("busy-title").textContent = t(titleKey);
@@ -482,6 +508,7 @@ function bind() {
 
 async function start() {
   await initI18n();
+  buildRunes();
   bind();
   initDropzone(openFile);
   await loadSystem();

@@ -116,7 +116,7 @@
   "about.privacy": "Privacidade",
   "about.privacy_text": "Nenhum dado pessoal, nenhuma telemetria, nenhuma publicidade. Na busca online, apenas o nome dos pacotes é enviado ao Repology.",
   "about.credits_title": "Tecnologias",
-  "about.credits": "Rust, Tauri e as bibliotecas livres tar, flate2, xz2, zstd, goblin.",
+  "about.credits": "Rust, Tauri e as bibliotecas livres tar, flate2, liblzma, zstd, bzip2, lz4_flex, goblin. Runas: fonte Noto Sans Old Turkic (SIL Open Font License 1.1).",
   "about.cache": "Limpar o cache de buscas",
   "about.cache_done": "Cache limpo.",
   "about.close": "Fechar",
@@ -163,5 +163,6 @@
   "warn.tar_relocated": "Este arquivo não está organizado como um sistema Linux: seu conteúdo será instalado em /opt/<nome>, com atalhos em /usr/bin.",
   "warn.tar_no_uninstall": "Um arquivo tar é instalado extraindo-o na raiz: não poderá ser desinstalado automaticamente.",
   "warn.tar_no_scripts": "Um arquivo tar não pode conter scripts de instalação: eles não foram mantidos.",
-  "warn.slp_arch": "O Stampede não conhece esta arquitetura: o pacote foi marcado como «todas as arquiteturas»."
+  "warn.slp_arch": "O Stampede não conhece esta arquitetura: o pacote foi marcado como «todas as arquiteturas».",
+  "busy.runes": "«tamga» e «türük» escritos em runas turcas antigas (alfabeto de Orkhon)"
 }
