@@ -56,6 +56,11 @@ pub fn shebang_interpreter(head: &[u8]) -> Option<String> {
     Some(format!("/usr/bin/{cmd}"))
 }
 
+/// Nom canonique de l'architecture d'un en-tête ELF (« x86_64 », « aarch64 »…).
+pub fn machine_of(m: u16) -> Option<&'static str> {
+    machine_name(m)
+}
+
 fn machine_name(m: u16) -> Option<&'static str> {
     use goblin::elf::header::*;
     Some(match m {

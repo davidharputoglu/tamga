@@ -1,0 +1,118 @@
+# Test réel des « bibliothèques fournies avec le paquet »
+# Real-world test of bundling missing libraries from official distribution repositories.
+#
+# Chaque test convertit un vrai paquet pour une distribution où une de ses bibliothèques
+# n'existe pas, installe le résultat dans un conteneur propre et lance le programme.
+#   - .deb Ubuntu 22.04 (ICU 70)   → .rpm sur Fedora         (bibliothèques prises chez Ubuntu)
+#   - paquet Arch (libjpeg.so.8)   → .rpm sur Fedora         (bibliothèque prise chez Arch)
+#   - .rpm AlmaLinux 9 (ICU 67)    → .deb sur Ubuntu 24.04   (bibliothèques prises chez AlmaLinux)
+#   - .deb Ubuntu 22.04 → .rpm « Fedora » depuis Ubuntu : vérification dans les dépôts de Fedora
+#
+# Lancement : onglet « Actions » → « Test des bibliothèques fournies » → « Run workflow ».
+
+name: Test des bibliothèques fournies
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  cli:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Compilation et tests du moteur
+        working-directory: core
+        run: |
+          cargo test --release
+          cargo build --release --bin tamga-cli
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tamga-cli
+          path: core/target/release/tamga-cli
+
+  paquets:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Paquets de test (Ubuntu 22.04, AlmaLinux 9, Arch)
+        run: |
+          mkdir -p pkgs
+          curl -fsSLo pkgs/icu-devtools_70.1-2_amd64.deb \
+            https://archive.ubuntu.com/ubuntu/pool/main/i/icu/icu-devtools_70.1-2_amd64.deb
+          docker run --rm -v "$PWD/pkgs:/pkgs" almalinux:9 bash -c \
+            'dnf -y -q install dnf-plugins-core >/dev/null && dnf -y -q download --destdir /pkgs icu'
+          docker run --rm -v "$PWD/pkgs:/pkgs" archlinux:latest bash -c \
+            'pacman -Syw --noconfirm --cachedir /pkgs jpegoptim >/dev/null'
+          sudo chown -R "$(id -u)" pkgs
+          ls -la pkgs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paquets
+          path: pkgs
+
+  vers-fedora:
+    needs: [cli, paquets]
+    runs-on: ubuntu-24.04
+    container: fedora:latest
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: .deb Ubuntu 22.04 → .rpm, installé sur Fedora
+        run: |
+          set -x
+          T=tamga-cli/tamga-cli; chmod +x $T
+          $T convert paquets/icu-devtools_70.1-2_amd64.deb --to rpm --online --out out/ 2>&1 | tee log1
+          grep "libicuuc.so.70 ←" log1
+          dnf -y -q install --nogpgcheck out/*.rpm
+          uconv --version | tee v1
+          grep "ICU 70" v1
+          echo "héllo wörld" | uconv -f utf-8 -t ascii -x Latin-ASCII
+      - name: Paquet Arch → .rpm, installé sur Fedora
+        run: |
+          set -x
+          T=tamga-cli/tamga-cli
+          P=$(ls paquets/jpegoptim-*.pkg.tar.zst | head -1)
+          $T deps "$P" --to rpm --online 2>&1 | tee d2
+          $T convert "$P" --to rpm --online --out out2/ 2>&1 | tee log2
+          grep "libjpeg.so.8 ←" log2
+          dnf -y -q install --nogpgcheck out2/*.rpm
+          jpegoptim --version
+
+  vers-ubuntu:
+    needs: [cli, paquets]
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    steps:
+      - name: Outils
+        run: apt-get update -q && apt-get install -y -q ca-certificates >/dev/null
+      - uses: actions/download-artifact@v4
+      - name: .rpm AlmaLinux 9 → .deb, installé sur Ubuntu 24.04
+        run: |
+          set -x
+          T=tamga-cli/tamga-cli; chmod +x $T
+          P=$(ls paquets/icu-*.el9*.rpm | head -1)
+          $T deps "$P" --to deb --online 2>&1 | tee d3
+          $T convert "$P" --to deb --online --out out/ 2>&1 | tee log3
+          grep "libicuuc.so.67 ←" log3
+          apt-get install -y -q ./out/*.deb
+          uconv --version | tee v3
+          grep "ICU 67" v3
+
+  cible-distante:
+    needs: [cli, paquets]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: .deb Ubuntu 22.04 → .rpm pour Fedora, vérifié dans les dépôts de Fedora
+        run: |
+          set -x
+          T=tamga-cli/tamga-cli; chmod +x $T
+          $T deps paquets/icu-devtools_70.1-2_amd64.deb --to rpm --distro fedora --online 2>&1 | tee d4
+          grep "libicuuc.so.70" d4 | grep "BUNDLED"
+          grep "libstdc++.so.6 " d4 | grep -v "BUNDLED"

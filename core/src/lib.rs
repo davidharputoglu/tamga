@@ -10,6 +10,7 @@
 //! vérifier les dépendances disponibles sur la machine.
 
 pub mod ar;
+pub mod bundle;
 pub mod cli;
 pub mod compress;
 pub mod convert;
@@ -25,6 +26,7 @@ pub mod lzw;
 pub mod mapping;
 pub mod model;
 pub mod pacman;
+pub mod repos;
 pub mod rpm;
 pub mod scripts;
 pub mod shell;

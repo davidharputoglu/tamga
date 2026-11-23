@@ -126,6 +126,10 @@
             <input type="checkbox" id="opt-online" checked>
             <span><span data-i18n="opt.online"></span><small data-i18n="opt.online_hint"></small></span>
           </label>
+          <label class="check" id="opt-bundle-row">
+            <input type="checkbox" id="opt-bundle" checked>
+            <span><span data-i18n="opt.bundle"></span><small data-i18n="opt.bundle_hint"></small></span>
+          </label>
           <label class="check">
             <input type="checkbox" id="opt-usrmerge" checked>
             <span><span data-i18n="opt.usrmerge"></span></span>
@@ -209,6 +213,10 @@
           <pre class="install-log" id="install-log"></pre>
         </details>
         <div class="notes" id="result-warnings" hidden></div>
+        <details class="files-box" id="result-bundled-box" hidden>
+          <summary data-i18n="result.bundled">Bibliothèques fournies avec le paquet</summary>
+          <ul id="result-bundled" class="file-list"></ul>
+        </details>
         <details class="files-box" id="result-deps-box">
           <summary data-i18n="result.deps">Dépendances incluses</summary>
           <ul id="result-deps" class="file-list"></ul>

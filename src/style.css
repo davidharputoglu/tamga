@@ -357,6 +357,8 @@ table.deps td input[type="checkbox"] { accent-color: var(--turquoise); width: 16
 .chip.estimated { background: rgba(242, 201, 76, 0.12); color: var(--jaune); }
 .chip.missing { background: rgba(255, 107, 122, 0.12); color: var(--rouge); }
 .chip.skipped { background: rgba(255, 255, 255, 0.06); color: var(--gris); }
+.chip.bundled { background: rgba(0, 225, 217, 0.16); color: var(--turquoise); border: 1px solid var(--turquoise-ligne); }
+.dep-detail { display: block; font-size: 0.72rem; color: var(--texte-doux); margin-top: 3px; white-space: normal; max-width: 260px; }
 .method { display: block; font-size: 0.72rem; color: var(--texte-doux); }
 .add-dep { display: flex; gap: 8px; margin-top: 12px; }
 .add-dep input { flex: 1; }

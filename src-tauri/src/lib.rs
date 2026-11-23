@@ -65,10 +65,23 @@ async fn analyze(path: String, state: State<'_, AppState>) -> Result<Analysis, S
 
 /// Résout les dépendances pour la cible choisie.
 #[tauri::command]
-async fn resolve_deps(format: Format, distro: TargetDistro, online: bool, state: State<'_, AppState>) -> Result<Vec<DepItem>, String> {
+async fn resolve_deps(
+    format: Format,
+    distro: TargetDistro,
+    online: bool,
+    bundle: Option<bool>,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Vec<DepItem>, String> {
+    use tauri::Emitter;
     let s = current(&state)?;
     let sys = system(&state);
-    tauri::async_runtime::spawn_blocking(move || convert::resolve_deps(&s.pkg, &s.elf, format, distro, online, &sys))
+    // Progression des recherches en ligne (bibliothèques manquantes) vers l'interface.
+    let progress: tamga_core::repos::Progress = std::sync::Arc::new(move |key: &str, detail: &str| {
+        let _ = app.emit("bundle-progress", serde_json::json!({ "key": key, "detail": detail }));
+    });
+    let bundle = bundle.unwrap_or(true);
+    tauri::async_runtime::spawn_blocking(move || convert::resolve_deps(&s.pkg, &s.elf, format, distro, online, bundle, &sys, Some(progress)))
         .await
         .map_err(|e| e.to_string())
 }

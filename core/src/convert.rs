@@ -1,7 +1,9 @@
 //! Point d'entrée : analyser un fichier, puis le convertir.
 //! High-level API: load/analyze a file, then convert it.
 
+use crate::bundle::{self, BundledLib};
 use crate::deps::{self, DepItem, ResolveCtx, TargetDistro};
+use crate::repos::Progress;
 use crate::detect::{self, Detected};
 use crate::distro::SystemInfo;
 use crate::elf::{self, ElfInfo};
@@ -133,6 +135,12 @@ pub struct ConvertOptions {
     /// Compression des archives tar et Slackware : gz, xz, bz2, zst, none.
     #[serde(default)]
     pub compression: Option<String>,
+    /// Fournir avec le paquet les bibliothèques absentes de la cible (en ligne).
+    #[serde(default = "yes")]
+    pub bundle: bool,
+    /// Bibliothèques à fournir, choisies dans l'interface (avec `deps`).
+    #[serde(default)]
+    pub bundled: Option<Vec<BundledLib>>,
 }
 
 fn yes() -> bool {
@@ -147,6 +155,9 @@ pub struct ConvertResult {
     pub install_command: String,
     pub depends: Vec<String>,
     pub warnings: Vec<String>,
+    /// Bibliothèques fournies avec le paquet : « libfoo.so.1 ← Ubuntu 22.04 · libfoo1 1.0 ».
+    #[serde(default)]
+    pub bundled: Vec<String>,
 }
 
 fn apply_override(meta: &mut Metadata, o: &MetaOverride) {
@@ -260,13 +271,40 @@ fn carry(list: &[Dependency], same_family: bool, keep_plain: bool) -> Vec<Depend
 }
 
 /// Résout les dépendances (utilisé par l'interface pour afficher le tableau).
-pub fn resolve_deps(pkg: &Package, elf: &ElfInfo, format: Format, distro: TargetDistro, online: bool, sys: &SystemInfo) -> Vec<DepItem> {
+/// Avec `bundle` (et en ligne), les bibliothèques absentes de la cible sont cherchées dans
+/// les dépôts de la distribution d'origine pour être fournies avec le paquet.
+pub fn resolve_deps(
+    pkg: &Package,
+    elf: &ElfInfo,
+    format: Format,
+    distro: TargetDistro,
+    online: bool,
+    bundle_libs: bool,
+    sys: &SystemInfo,
+    progress: Option<Progress>,
+) -> Vec<DepItem> {
     let ctx = ResolveCtx { format, distro, online, sys };
-    deps::resolve(&pkg.meta, elf, &ctx)
+    let mut items = deps::resolve(&pkg.meta, elf, &ctx);
+    if bundle_libs && online {
+        let progress = progress.unwrap_or_else(|| std::sync::Arc::new(|_: &str, _: &str| {}));
+        bundle::bundle_missing(&pkg.meta, elf, &mut items, &ctx, progress);
+    }
+    if format.is_generic() {
+        // Formats sans dépendances déclarées : l'installateur .sh (ou l'utilisateur) vérifie
+        // sur la machine cible ; une bibliothèque absente d'ici ne bloque pas la conversion.
+        for it in items.iter_mut().filter(|i| i.status == deps::Status::Missing && i.origin == deps::Origin::Library) {
+            it.status = deps::Status::Estimated;
+        }
+    }
+    items
 }
 
 /// Convertit le paquet chargé vers le format demandé.
 pub fn convert(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &SystemInfo) -> Result<ConvertResult> {
+    convert_with_progress(pkg, elf, opts, sys, None)
+}
+
+pub fn convert_with_progress(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &SystemInfo, progress: Option<Progress>) -> Result<ConvertResult> {
     let fam = opts.distro.family(opts.format, sys);
     let mut meta = pkg.meta.clone();
     apply_override(&mut meta, &opts.meta);
@@ -274,10 +312,25 @@ pub fn convert(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &System
         bail!("err.empty_name");
     }
     let mut warnings = Vec::new();
+
+    // Dépendances (et bibliothèques à fournir avec le paquet)
+    let (final_deps, bundled): (Vec<Dependency>, Vec<BundledLib>) = match &opts.deps {
+        Some(d) => (deps::dedupe(d.iter().cloned()), if opts.bundle { opts.bundled.clone().unwrap_or_default() } else { vec![] }),
+        None => {
+            let items = resolve_deps(pkg, elf, opts.format, opts.distro, opts.online, opts.bundle, sys, progress);
+            if deps::has_missing(&items) {
+                warnings.push("warn.missing_deps".into());
+            }
+            (deps::final_deps(&items), items.iter().filter_map(|i| i.bundle.clone()).collect())
+        }
+    };
+
     let mut tree: Tree = pkg.tree.clone_shallow();
     if opts.usrmerge {
         fsdirs::apply_usrmerge(&mut tree, fam);
     }
+    // Bibliothèques absentes de la cible, rangées dans un dossier privé.
+    let applied = bundle::apply(&mut tree, &meta, &bundled)?;
 
     // Bibliothèques rangées hors des dossiers connus de la cible → ld.so.conf.d
     let lib_dirs = if opts.format.is_generic() {
@@ -293,6 +346,16 @@ pub fn convert(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &System
     } else {
         fsdirs::extra_lib_dirs(&tree, fam, &meta.arch)
     };
+    let mut lib_dirs = lib_dirs;
+    if let Some(a) = &applied {
+        warnings.push("warn.bundled_libs".into());
+        if a.needs_ld_conf {
+            lib_dirs.push(a.dir.clone());
+            if opts.format == Format::Tar {
+                warnings.push("warn.tar_ldconfig".into());
+            }
+        }
+    }
     if !lib_dirs.is_empty() {
         let conf: String = lib_dirs.iter().map(|d| format!("/{d}\n")).collect();
         let name = format!("etc/ld.so.conf.d/tamga-{}.conf", version::deb_name(&meta.name));
@@ -302,17 +365,6 @@ pub fn convert(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &System
     let has_libs = tree.entries.keys().any(|k| fsdirs::looks_like_shared_lib(k) && !k.contains("/python"));
     let integ = Integration::detect(&tree, !lib_dirs.is_empty() || has_libs);
 
-    // Dépendances
-    let final_deps = match &opts.deps {
-        Some(d) => deps::dedupe(d.iter().cloned()),
-        None => {
-            let items = resolve_deps(pkg, elf, opts.format, opts.distro, opts.online, sys);
-            if deps::has_missing(&items) {
-                warnings.push("warn.missing_deps".into());
-            }
-            deps::final_deps(&items)
-        }
-    };
     let same_family = meta.dep_family.map(|f| f == fam).unwrap_or(false);
 
     // Fichier de sortie
@@ -371,7 +423,17 @@ pub fn convert(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &System
             pacman::write(&meta, &tree, &o, &out)?;
         }
         Format::Sh => {
-            let libs: Vec<String> = elf.needed.keys().cloned().collect();
+            // Bibliothèques à vérifier à l'installation : celles du paquet, sauf les fournies,
+            // plus celles dont les fournies ont besoin.
+            let given: std::collections::BTreeSet<&str> = bundled.iter().map(|b| b.soname.as_str()).collect();
+            let mut libs: Vec<String> = elf.needed.keys().filter(|l| !given.contains(l.as_str())).cloned().collect();
+            for b in &bundled {
+                for n in &b.needs {
+                    if !given.contains(n.as_str()) && !elf.provided.contains(n) && !libs.contains(n) {
+                        libs.push(n.clone());
+                    }
+                }
+            }
             let hints = libs.iter().filter_map(|l| crate::mapping::hint_line(l).map(|h| (l.clone(), h))).collect();
             let o = shell::ShWriteOpts {
                 needed_libs: libs,
@@ -412,6 +474,7 @@ pub fn convert(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions, sys: &System
         install_command: install_command(opts.format, fam, &file_name),
         depends: final_deps.iter().map(|d| d.display_std()).collect(),
         warnings,
+        bundled: if applied.is_some() { bundled.iter().map(|b| format!("{} ← {}", b.soname, b.source)).collect() } else { vec![] },
     })
 }
 

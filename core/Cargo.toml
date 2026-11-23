@@ -33,7 +33,8 @@ base64 = "0.22"
 goblin = { version = "0.10", default-features = false, features = ["std", "elf32", "elf64", "endian_fd"] }
 memmap2 = "0.9"
 tempfile = "3"
-ureq = { version = "2", features = ["json"] }
+ureq = { version = "2", features = ["json", "native-certs"] }
 dirs = "5"
+quick-xml = "0.37"
 
 [dev-dependencies]

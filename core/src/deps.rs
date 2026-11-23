@@ -32,6 +32,8 @@ pub enum Status {
     Missing,
     /// Inutile pour la cible (déjà couverte, ou propre à l'ancienne distribution).
     Skipped,
+    /// Absente de la cible : la bibliothèque est fournie avec le paquet (voir `bundle`).
+    Bundled,
 }
 
 /// D'où vient la traduction.
@@ -63,6 +65,12 @@ pub struct DepItem {
     pub detail: Option<String>,
     /// Incluse dans le paquet final ?
     pub keep: bool,
+    /// Bibliothèque fournie avec le paquet (statut « bundled »).
+    #[serde(default)]
+    pub bundle: Option<crate::bundle::BundledLib>,
+    /// Bibliothèque ajoutée qui a besoin de celle-ci.
+    #[serde(default)]
+    pub needed_by: Option<String>,
 }
 
 /// Distribution cible choisie par l'utilisateur.
@@ -159,6 +167,8 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
             method: "none".into(),
             detail: None,
             keep: true,
+            bundle: None,
+            needed_by: None,
         };
         match ctx.format {
             Format::Rpm => {
@@ -192,6 +202,8 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
                         method: "soname".into(),
                         detail: None,
                         keep: true,
+                        bundle: None,
+                        needed_by: None,
                     });
                 }
             }
@@ -202,6 +214,26 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
                 item.detail = mapping::hint_line(soname);
                 if ld.find(soname, elf.is64).is_some() {
                     item.status = Status::Installed;
+                } else if ctx.distro == TargetDistro::ThisSystem && ctx.format != Format::Solaris {
+                    // Pour cette machine : la bibliothèque est-elle au moins dans ses dépôts ?
+                    // (sinon elle pourra être fournie avec le paquet, voir `bundle`)
+                    let query = match ctx.sys.family {
+                        Some(Family::Fedora) | Some(Family::Suse) => Some(elf::rpm_soname(soname, None, elf.is64)),
+                        Some(f @ Family::Debian) => mapping::package_for_soname(soname, f).map(String::from).or_else(|| mapping::debian_convention(soname)),
+                        Some(f @ Family::Arch) => mapping::package_for_soname(soname, f).map(String::from),
+                        _ => None,
+                    };
+                    if let Some(q) = query {
+                        match distro::available_in_repos(ctx.sys, &q) {
+                            Some(p) => {
+                                item.status = Status::Available;
+                                item.detail = Some(p);
+                            }
+                            None => item.status = Status::Missing,
+                        }
+                    } else if ctx.sys.family.is_some() {
+                        item.status = Status::Missing;
+                    }
                 }
             }
             Format::Deb | Format::Arch => {
@@ -268,6 +300,8 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
                 method: "soname".into(),
                 detail: ctx.sys.glibc.clone(),
                 keep: true,
+                bundle: None,
+                needed_by: None,
             });
         }
     }
@@ -283,6 +317,8 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
             method: "file".into(),
             detail: None,
             keep: true,
+            bundle: None,
+            needed_by: None,
         };
         if ctx.format == Format::Rpm {
             // rpm sait trouver le paquet qui fournit un fichier.
@@ -327,6 +363,8 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
             method: "none".into(),
             detail: None,
             keep: true,
+            bundle: None,
+            needed_by: None,
         };
         let name = dep.name.as_str();
 
@@ -612,7 +650,7 @@ impl Repology {
             from_repo,
             urlencode(name)
         );
-        let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(12)).redirects(5).build();
+        let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(12)).redirects(5).try_proxy_from_env(true).build();
         match agent.get(&url).set("User-Agent", &format!("TAMGA/{} (Linux package converter)", crate::TAMGA_VERSION)).call() {
             Ok(resp) => {
                 self.failures = 0;

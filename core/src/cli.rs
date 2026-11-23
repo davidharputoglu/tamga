@@ -15,7 +15,12 @@ Utilisation / Usage:
   tamga analyze <paquet> [--json]
   tamga deps    <paquet> --to <format> [--distro <auto|debian|fedora|suse|arch|any>] [--online] [--json]
   tamga convert <paquet> --to <format> [--out <dossier|fichier>] [--distro …] [--compress <gz|xz|bz2|zst|none>]
-                [--scripts] [--online] [--no-usrmerge] [--name N] [--version V] [--release R] [--install]
+                [--scripts] [--online] [--no-bundle] [--no-usrmerge] [--name N] [--version V] [--release R] [--install]
+
+  --online     cherche les dépendances en ligne et télécharge depuis les dépôts officiels les
+               bibliothèques absentes de la cible, pour les fournir avec le paquet
+               / look up dependencies online and bundle libraries the target lacks
+  --no-bundle  ne pas fournir les bibliothèques manquantes / do not bundle missing libraries
   tamga system
 
 Formats lus / read : .deb .rpm Arch (.pkg.tar.*) .sh (TAMGA) Slackware (.txz .tgz .tbz .tlz)
@@ -43,6 +48,7 @@ struct Args {
     json: bool,
     compress: Option<String>,
     install: bool,
+    bundle: bool,
 }
 
 fn parse(args: &[String]) -> Result<Args> {
@@ -59,6 +65,7 @@ fn parse(args: &[String]) -> Result<Args> {
         json: false,
         compress: None,
         install: false,
+        bundle: true,
     };
     let mut i = 1;
     let val = |i: &mut usize| -> Result<String> {
@@ -74,6 +81,7 @@ fn parse(args: &[String]) -> Result<Args> {
             "--distro" => a.distro = TargetDistro::parse(&val(&mut i)?).context("distribution inconnue")?,
             "--scripts" => a.scripts = true,
             "--online" => a.online = true,
+            "--no-bundle" => a.bundle = false,
             "--no-usrmerge" => a.usrmerge = false,
             "--json" => a.json = true,
             "--name" => a.meta.name = Some(val(&mut i)?),
@@ -94,7 +102,21 @@ fn status_label(s: Status) -> &'static str {
         Status::Estimated => "estimé / estimated",
         Status::Missing => "INTROUVABLE / NOT FOUND",
         Status::Skipped => "ignoré / skipped",
+        Status::Bundled => "FOURNIE / BUNDLED",
     }
+}
+
+/// Progression des recherches en ligne, sur la sortie d'erreur.
+fn cli_progress() -> crate::repos::Progress {
+    std::sync::Arc::new(|key: &str, detail: &str| {
+        let what = match key {
+            "bundle.search" => "Recherche / looking for",
+            "bundle.index" => "Liste des paquets / package list",
+            "bundle.download" => "Téléchargement / download",
+            _ => key,
+        };
+        eprintln!("… {what} : {detail}");
+    })
 }
 
 /// Lance le mode texte. Retourne le code de sortie.
@@ -161,7 +183,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             let to = a.to.context("--to <deb|rpm|arch|sh|slack|tar|slp>")?;
             let pkg = convert::load(&f)?;
             let (_, elf) = convert::analyze(&pkg, &f);
-            let items = convert::resolve_deps(&pkg, &elf, to, a.distro, a.online, &sys);
+            let items = convert::resolve_deps(&pkg, &elf, to, a.distro, a.online, a.bundle, &sys, Some(cli_progress()));
             if a.json {
                 println!("{}", serde_json::to_string_pretty(&items)?);
                 return Ok(());
@@ -174,6 +196,9 @@ fn run_inner(args: &[String]) -> Result<()> {
                     status_label(i.status),
                     i.detail.clone().unwrap_or_default()
                 );
+                if let Some(n) = &i.needed_by {
+                    println!("{:<45}   (← {n})", "");
+                }
             }
             if deps::has_missing(&items) {
                 println!("\nCertaines dépendances sont introuvables / some dependencies were not found.");
@@ -203,9 +228,14 @@ fn run_inner(args: &[String]) -> Result<()> {
                 online: a.online,
                 output: out,
                 compression: a.compress,
+                bundle: a.bundle,
+                bundled: None,
             };
-            let r = convert::convert(&pkg, &elf, &opts, &sys)?;
+            let r = convert::convert_with_progress(&pkg, &elf, &opts, &sys, Some(cli_progress()))?;
             println!("{}", r.path);
+            for b in &r.bundled {
+                eprintln!("Fournie avec le paquet / bundled : {b}");
+            }
             for w in &r.warnings {
                 eprintln!("Avertissement / warning : {w}");
             }

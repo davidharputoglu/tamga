@@ -364,8 +364,10 @@ async function checkDeps() {
     state.deps = await invoke("resolve_deps", {
       format: state.target,
       distro: $("distro").value,
-      online: $("opt-online").checked
+      online: $("opt-online").checked,
+      bundle: $("opt-bundle").checked
     });
+    state.deps.forEach(d => { if (d.bundle) d.useBundle = true; });
     stopBusy();
     renderDeps();
     show("screen-deps");
@@ -390,20 +392,32 @@ function renderDeps() {
   rows.forEach((d, i) => {
     const tr = el("tr");
     const src = el("td", "mono", d.source);
-    const tgt = el("td", "mono", depText(d.target));
+    // Ligne « fournie » : le paquet d'origine de la bibliothèque, pas un nom pour la cible.
+    const tgt = el("td", "mono", d.status === "bundled" ? (d.bundle ? d.bundle.package : "—") : depText(d.target));
     if (d.method && d.method !== "none") tgt.appendChild(el("span", "method", t("method." + d.method)));
     const st = el("td");
     const chip = el("span", "chip " + d.status, t("deps." + d.status));
     if (d.detail) chip.title = d.detail;
     st.appendChild(chip);
+    // Bibliothèque fournie avec le paquet : d'où elle vient, et qui en a besoin.
+    if (d.status === "bundled" && d.detail) st.appendChild(el("span", "dep-detail", d.detail));
+    if (d.needed_by) src.appendChild(el("span", "dep-detail", t("deps.needed_by", { lib: d.needed_by })));
     const keep = el("td");
     const cb = document.createElement("input");
     cb.type = "checkbox";
-    cb.checked = !!d.keep;
-    cb.disabled = !d.target;
-    cb.addEventListener("change", () => { d.keep = cb.checked; tr.classList.toggle("off", !cb.checked); updateMissing(); });
+    if (d.bundle) {
+      // Case cochée = la bibliothèque est fournie avec le paquet.
+      cb.checked = d.useBundle !== false;
+      cb.title = t("deps.bundle_keep");
+      cb.addEventListener("change", () => { d.useBundle = cb.checked; tr.classList.toggle("off", !cb.checked); updateMissing(); });
+      tr.classList.toggle("off", d.useBundle === false);
+    } else {
+      cb.checked = !!d.keep;
+      cb.disabled = !d.target || d.status === "bundled";
+      cb.addEventListener("change", () => { d.keep = cb.checked; tr.classList.toggle("off", !cb.checked); updateMissing(); });
+      tr.classList.toggle("off", !d.keep && d.status !== "bundled");
+    }
     keep.appendChild(cb);
-    tr.classList.toggle("off", !d.keep);
     tr.append(src, tgt, st, keep);
     tb.appendChild(tr);
   });
@@ -412,7 +426,13 @@ function renderDeps() {
 }
 
 function hasMissing() {
-  return state.deps.concat(state.extraDeps).some(d => d.status === "missing" && (d.keep || !d.target));
+  return state.deps.concat(state.extraDeps).some(d =>
+    (d.status === "missing" && (d.keep || !d.target)) || (d.bundle && d.useBundle === false));
+}
+
+/** Bibliothèques à fournir avec le paquet (lignes « fournie » gardées). */
+function bundledLibs() {
+  return state.deps.filter(d => d.bundle && d.useBundle !== false).map(d => d.bundle);
 }
 
 function updateMissing() {
@@ -458,7 +478,9 @@ async function doConvert(installAfter) {
         usrmerge: $("opt-usrmerge").checked,
         online: $("opt-online").checked,
         output,
-        compression: compression()
+        compression: compression(),
+        bundle: $("opt-bundle").checked,
+        bundled: bundledLibs()
       }
     });
     state.installed = false;
@@ -522,6 +544,10 @@ function renderResult() {
   ul.innerHTML = "";
   (r.depends || []).forEach(d => ul.appendChild(el("li", "", d)));
   $("result-deps-box").hidden = !(r.depends || []).length;
+  const ub = $("result-bundled");
+  ub.innerHTML = "";
+  (r.bundled || []).forEach(b => ub.appendChild(el("li", "", b)));
+  $("result-bundled-box").hidden = !(r.bundled || []).length;
   $("btn-install").hidden = !canInstall(r.format) || state.installed;
 }
 
@@ -557,6 +583,10 @@ function bind() {
     if (TAURI && TAURI.opener) TAURI.opener.revealItemInDir(state.result.path).catch(err => console.error(err));
   });
   $("btn-other-format").addEventListener("click", () => { renderPackage(); show("screen-package"); });
+  // Fournir les bibliothèques manquantes demande la recherche en ligne.
+  const syncBundle = () => { $("opt-bundle").disabled = !$("opt-online").checked; };
+  $("opt-online").addEventListener("change", syncBundle);
+  syncBundle();
   $("btn-runes").addEventListener("click", openRunes);
   $("runes-input").addEventListener("input", renderRunePreview);
   $("runes-input").addEventListener("keydown", e => { if (e.key === "Enter" && !$("btn-runes-save").disabled) { e.preventDefault(); saveRunes(); } });
@@ -597,6 +627,11 @@ async function start() {
   await loadSystem();
   try { state.installable = await invoke("installable_formats"); } catch (e) { state.installable = []; }
   if (TAURI && TAURI.event) TAURI.event.listen("install-log", ev => appendInstallLog(String(ev.payload))).catch(() => {});
+  // Recherche des bibliothèques manquantes : ce qui se passe, sous le titre d'attente.
+  if (TAURI && TAURI.event) TAURI.event.listen("bundle-progress", ev => {
+    const p = ev.payload || {};
+    if (!$("screen-busy").hidden) $("busy-file").textContent = t(p.key) + " " + (p.detail || "");
+  }).catch(() => {});
   if (storageGet("tamga-legal") === LEGAL_VERSION) show("screen-home");
   else show("screen-legal");
 }
