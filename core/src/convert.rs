@@ -20,7 +20,13 @@ use std::path::{Path, PathBuf};
 /// Charge un paquet, quel que soit son format.
 /// Les erreurs « connues » commencent par « err. » (clé de traduction de l'interface).
 pub fn load(path: &Path) -> Result<Package> {
-    match detect::detect(path) {
+    if path.is_dir() {
+        crate::vlog!("analyse", "lecture du dossier {}", path.display());
+        return crate::builddir::read(path);
+    }
+    let det = detect::detect(path);
+    crate::vlog!("analyse", "lecture de {} ({}) — format détecté : {:?}", path.display(), crate::journal::size(std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)), det);
+    match det {
         Detected::Package(Format::Deb) => deb::read(path),
         Detected::Package(Format::Rpm) => rpm::read(path),
         Detected::Package(Format::Arch) => pacman::read(path),
@@ -57,6 +63,12 @@ pub struct Analysis {
     pub files_preview: Vec<String>,
     /// Formats vers lesquels on peut convertir.
     pub targets: Vec<Format>,
+    /// Ouvert depuis un dossier de construction (voir `builddir`).
+    #[serde(default)]
+    pub is_folder: bool,
+    /// Format conseillé (dossier de construction).
+    #[serde(default)]
+    pub suggested: Option<Format>,
 }
 
 pub fn analyze(pkg: &Package, path: &Path) -> (Analysis, ElfInfo) {
@@ -75,6 +87,27 @@ pub fn analyze(pkg: &Package, path: &Path) -> (Analysis, ElfInfo) {
     }
     if pkg.meta.arch == "noarch" && elf.elf_files > 0 {
         warnings.push("warn.noarch_binaries".into());
+    }
+    if crate::journal::on() {
+        let m = &pkg.meta;
+        crate::journal::write(
+            "analyse",
+            &format!(
+                "{} {} {} ({}) — {} fichiers, {} programmes ELF{}\nbibliothèques utilisées : {}\nbibliothèques fournies : {}\ninterpréteurs : {}\ndépendances déclarées : {}{}",
+                m.name,
+                m.version,
+                m.release,
+                m.arch,
+                pkg.tree.file_count(),
+                elf.elf_files,
+                elf.glibc.as_ref().map(|g| format!(", glibc ≥ {g}")).unwrap_or_default(),
+                if elf.needed.is_empty() { "aucune".into() } else { elf.needed.keys().cloned().collect::<Vec<_>>().join(", ") },
+                if elf.provided.is_empty() { "aucune".into() } else { elf.provided.iter().cloned().collect::<Vec<_>>().join(", ") },
+                if elf.interpreters.is_empty() { "aucun".into() } else { elf.interpreters.iter().cloned().collect::<Vec<_>>().join(", ") },
+                m.depends.iter().map(|d| d.display()).collect::<Vec<_>>().join(", "),
+                if warnings.is_empty() { String::new() } else { format!("\navertissements : {}", warnings.join(", ")) }
+            ),
+        );
     }
     let a = Analysis {
         path: path.to_string_lossy().to_string(),
@@ -97,7 +130,9 @@ pub fn analyze(pkg: &Package, path: &Path) -> (Analysis, ElfInfo) {
             .collect(),
         warnings,
         files_preview: pkg.tree.entries.iter().filter(|(_, e)| !e.is_dir()).take(200).map(|(p, _)| format!("/{p}")).collect(),
-        targets: Format::all().into_iter().filter(|f| *f != pkg.format).collect(),
+        targets: if path.is_dir() { Format::all().to_vec() } else { Format::all().into_iter().filter(|f| *f != pkg.format).collect() },
+        is_folder: path.is_dir(),
+        suggested: if path.is_dir() { pkg.meta.origin_format } else { None },
     };
     (a, elf)
 }
@@ -113,6 +148,9 @@ pub struct MetaOverride {
     pub maintainer: Option<String>,
     pub license: Option<String>,
     pub url: Option<String>,
+    /// Architecture du paquet créé (x86_64, aarch64, i686, armv7, noarch…).
+    #[serde(default)]
+    pub arch: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -141,6 +179,12 @@ pub struct ConvertOptions {
     /// Bibliothèques à fournir, choisies dans l'interface (avec `deps`).
     #[serde(default)]
     pub bundled: Option<Vec<BundledLib>>,
+    /// Remettre des droits « propres » sur les fichiers (comme un paquet officiel).
+    #[serde(default)]
+    pub fixperms: bool,
+    /// Écrire un dossier de construction au lieu du paquet (dans `output`).
+    #[serde(default)]
+    pub as_folder: bool,
 }
 
 fn yes() -> bool {
@@ -174,6 +218,9 @@ fn apply_override(meta: &mut Metadata, o: &MetaOverride) {
     set(&mut meta.maintainer, &o.maintainer);
     set(&mut meta.license, &o.license);
     set(&mut meta.url, &o.url);
+    if let Some(a) = o.arch.as_deref().map(str::trim).filter(|a| !a.is_empty() && *a != "auto") {
+        meta.arch = crate::version::canonical_arch(a);
+    }
 }
 
 /// Compression utilisée par défaut pour les formats à base de tar.
@@ -311,6 +358,20 @@ pub fn convert_with_progress(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions
     if meta.name.trim().is_empty() {
         bail!("err.empty_name");
     }
+    let started = std::time::Instant::now();
+    crate::vlog!(
+        "conversion",
+        "{} {} → {:?} pour {:?} (famille {:?}) ; scripts : {}, fusion /usr : {}, en ligne : {}, bibliothèques fournies : {}",
+        meta.name,
+        meta.version,
+        opts.format,
+        opts.distro,
+        fam,
+        opts.include_scripts,
+        opts.usrmerge,
+        opts.online,
+        opts.bundle
+    );
     let mut warnings = Vec::new();
 
     // Dépendances (et bibliothèques à fournir avec le paquet)
@@ -327,10 +388,28 @@ pub fn convert_with_progress(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions
 
     let mut tree: Tree = pkg.tree.clone_shallow();
     if opts.usrmerge {
-        fsdirs::apply_usrmerge(&mut tree, fam);
+        let moved = fsdirs::apply_usrmerge(&mut tree, fam);
+        crate::vlog!("conversion", "fusion /usr : {moved} entrées déplacées (bin → usr/bin, lib → usr/lib…)");
     }
     // Bibliothèques absentes de la cible, rangées dans un dossier privé.
     let applied = bundle::apply(&mut tree, &meta, &bundled)?;
+    if opts.fixperms {
+        let n = fsdirs::fix_permissions(&mut tree, fam);
+        crate::vlog!("conversion", "droits corrigés sur {n} fichiers et dossiers");
+        if n > 0 {
+            warnings.push("warn.fixperms_done".into());
+        }
+    }
+    // Architecture choisie différente de celle des programmes du paquet.
+    if let Some(m) = &elf.machine {
+        let a = crate::version::canonical_arch(&meta.arch);
+        if a != "noarch" && &a != m && pkg.meta.arch != meta.arch {
+            warnings.push("warn.arch_forced".into());
+        }
+        if a == "noarch" && pkg.meta.arch != "noarch" {
+            warnings.push("warn.noarch_binaries".into());
+        }
+    }
 
     // Bibliothèques rangées hors des dossiers connus de la cible → ld.so.conf.d
     let lib_dirs = if opts.format.is_generic() {
@@ -360,12 +439,32 @@ pub fn convert_with_progress(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions
         let conf: String = lib_dirs.iter().map(|d| format!("/{d}\n")).collect();
         let name = format!("etc/ld.so.conf.d/tamga-{}.conf", version::deb_name(&meta.name));
         tree.add_file_bytes(&name, conf.as_bytes(), 0o644, crate::tarutil::now())?;
+        crate::vlog!("conversion", "fichier /{name} ajouté : {}", lib_dirs.join(", "));
         warnings.push("warn.ld_conf_added".into());
     }
     let has_libs = tree.entries.keys().any(|k| fsdirs::looks_like_shared_lib(k) && !k.contains("/python"));
     let integ = Integration::detect(&tree, !lib_dirs.is_empty() || has_libs);
 
     let same_family = meta.dep_family.map(|f| f == fam).unwrap_or(false);
+
+    // Dossier de construction : les fichiers et la fiche, sans fabriquer le paquet.
+    if opts.as_folder {
+        // Comme pour un paquet : les liens entre paquets d'une autre famille ne sont pas repris.
+        let mut fm = meta.clone();
+        fm.provides = carry(&meta.provides, same_family, true);
+        fm.conflicts = carry(&meta.conflicts, same_family, false);
+        fm.replaces = carry(&meta.replaces, same_family, false);
+        let dir = crate::builddir::write(&fm, &tree, opts.format, fam, &final_deps, opts.include_scripts, &opts.output)?;
+        return Ok(ConvertResult {
+            path: dir.to_string_lossy().to_string(),
+            size: tree.total_size(),
+            format: opts.format,
+            install_command: format!("tamga convert {} --to {}", dir.display(), opts.format.id()),
+            depends: final_deps.iter().map(|d| d.display_std()).collect(),
+            warnings: vec!["warn.folder_written".into()],
+            bundled: bundled.iter().map(|b| format!("{} ← {}", b.soname, b.source)).collect(),
+        });
+    }
 
     // Fichier de sortie
     let compression = opts.compression.as_deref();
@@ -467,6 +566,15 @@ pub fn convert_with_progress(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions
     }
     let size = std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0);
     let file_name = out.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    crate::vlog!(
+        "conversion",
+        "écrit : {} ({}) en {:.1} s\ndépendances : {}{}",
+        out.display(),
+        crate::journal::size(size),
+        started.elapsed().as_secs_f64(),
+        if final_deps.is_empty() { "aucune".into() } else { final_deps.iter().map(|d| d.display_std()).collect::<Vec<_>>().join(", ") },
+        if warnings.is_empty() { String::new() } else { format!("\navertissements : {}", warnings.join(", ")) }
+    );
     Ok(ConvertResult {
         path: out.to_string_lossy().to_string(),
         size,

@@ -214,12 +214,16 @@ pub fn find_library(
             }
             let Some(index) = f.index(repo) else { continue };
             let mut cands: Vec<RepoPackage> = index.providers(soname, is64).into_iter().cloned().collect();
+            crate::vlog!("bibliothèques", "{soname} : {} candidat(s) dans {} par la liste des bibliothèques", cands.len(), repo.label);
             if matches!(repo.kind, RepoKind::Deb { .. } | RepoKind::Pacman { .. }) {
                 for c in name_candidates(soname, hints, &index, matches!(repo.kind, RepoKind::Deb { .. })) {
                     if !cands.iter().any(|x| x.name == c.name) {
                         cands.push(c);
                     }
                 }
+            }
+            if !cands.is_empty() {
+                crate::vlog!("bibliothèques", "{soname} : essai de {}", cands.iter().take(4).map(|c| c.name.as_str()).collect::<Vec<_>>().join(", "));
             }
             for p in cands.iter().take(4) {
                 if p.size > 300 * 1024 * 1024 {
@@ -234,12 +238,18 @@ pub fn find_library(
                     (dir.join(soname), lic)
                 } else {
                     let Ok(file) = f.package(p, &repo.label) else { continue };
-                    let Ok(r) = extract_lib(&file, p, soname, machine, is64) else { continue };
-                    r
+                    match extract_lib(&file, p, soname, machine, is64) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            crate::vlog!("bibliothèques", "{soname} : pas dans {} ({e:#})", p.name);
+                            continue;
+                        }
+                    }
                 };
                 let Ok(info) = scan_lib(&path) else { continue };
                 if let (Some(t), Some(g)) = (target_glibc, info.glibc.as_deref()) {
                     if elf::version_cmp(g, t).is_gt() {
+                        crate::vlog!("bibliothèques", "{soname} de {} demande glibc {g}, la cible a {t} : écartée", p.name);
                         continue; // trop récente pour la cible
                     }
                 }
@@ -307,6 +317,7 @@ pub fn bundle_missing(meta: &Metadata, elf_info: &ElfInfo, items: &mut Vec<DepIt
     }
     let family = meta.dep_family.unwrap_or(Family::Generic);
     let repos = crate::repos::repos_for(family, &meta.version, &meta.release, &meta.maintainer, &machine, elf_info.glibc.as_deref());
+    crate::vlog!("bibliothèques", "à chercher : {} — distribution d'origine {:?}, {} dépôt(s) possibles", queue.join(", "), family, repos.len());
     if repos.is_empty() {
         return bundled;
     }
@@ -327,7 +338,17 @@ pub fn bundle_missing(meta: &Metadata, elf_info: &ElfInfo, items: &mut Vec<DepIt
                 continue;
             }
             progress("bundle.search", &soname);
-            let Some((lib, info)) = find_library(&mut fetcher, &repos, &soname, is64, &machine, &hints, tg.as_deref()) else { continue };
+            let Some((lib, info)) = find_library(&mut fetcher, &repos, &soname, is64, &machine, &hints, tg.as_deref()) else {
+                crate::vlog!("bibliothèques", "{soname} : introuvable dans les dépôts d'origine");
+                continue;
+            };
+            crate::vlog!(
+                "bibliothèques",
+                "{soname} fournie avec le paquet ← {} ({}) ; elle a besoin de : {}",
+                lib.source,
+                crate::journal::size(lib.size),
+                if lib.needs.is_empty() { "rien".to_string() } else { lib.needs.join(", ") }
+            );
             for it in items.iter_mut().filter(|i| i.origin == Origin::Library && item_soname(i) == soname) {
                 it.status = Status::Bundled;
                 it.method = "bundled".into();
@@ -495,6 +516,7 @@ impl RemoteTarget {
                 }
             };
             if !present {
+                crate::vlog!("dépendances", "{so} absente de la cible ({})", self.repos.iter().map(|r| r.label.as_str()).collect::<Vec<_>>().join(", "));
                 it.status = Status::Missing;
                 it.detail = self.repos.first().map(|r| r.label.clone());
             }
@@ -606,6 +628,7 @@ pub fn apply(tree: &mut Tree, meta: &Metadata, libs: &[BundledLib]) -> Result<Op
         let Some(entry) = tree.entries.remove(p) else { continue };
         let dirname = parent(p).unwrap_or("");
         let real = if dirname.is_empty() { format!(".{}.tamga", basename(p)) } else { format!("{dirname}/.{}.tamga", basename(p)) };
+        crate::vlog!("conversion", "programme enveloppé : /{p} → lance /{real} avec {lib_dir_abs}");
         let mode = entry.mode;
         tree.entries.insert(real.clone(), entry);
         tree.add_file_bytes(p, wrapper_script(&lib_dir_abs, &format!("/{real}")).as_bytes(), mode & 0o7777 | 0o755, mtime)?;

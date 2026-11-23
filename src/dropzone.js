@@ -34,7 +34,7 @@ function dirName(path) {
   return i > 0 ? p.slice(0, i) : p;
 }
 
-function initDropzone(onFile) {
+function initDropzone(onFiles) {
   const zone = document.getElementById("dropzone");
   if (!zone) return;
 
@@ -45,15 +45,16 @@ function initDropzone(onFile) {
   const pick = async () => {
     if (window.__TAURI__ && window.__TAURI__.dialog) {
       try {
-        const path = await window.__TAURI__.dialog.open({
-          multiple: false,
+        const picked = await window.__TAURI__.dialog.open({
+          multiple: true,
           directory: false,
           filters: [
             { name: t("dialog.packages"), extensions: ["deb", "rpm", "zst", "xz", "gz", "bz2", "lz", "lzma", "lz4", "Z", "tar", "tgz", "txz", "tbz", "tbz2", "tlz", "tzst", "taz", "pacman", "pkg", "slp", "sh", "run"] },
             { name: t("dialog.all_files"), extensions: ["*"] }
           ]
         });
-        if (path) onFile(typeof path === "string" ? path : path.path);
+        const list = (Array.isArray(picked) ? picked : (picked ? [picked] : [])).map(p => typeof p === "string" ? p : p.path);
+        if (list.length) onFiles(list);
       } catch (err) {
         console.error("TAMGA : erreur dialog.open", err);
       }
@@ -75,7 +76,7 @@ function initDropzone(onFile) {
       if (p.type === "drop") {
         zone.classList.remove("dragover");
         const paths = p.paths || [];
-        if (paths.length > 0) onFile(paths[0]);
+        if (paths.length > 0) onFiles(paths);
       }
     }).then(() => console.log("TAMGA : écouteur natif ACTIF"))
       .catch(err => console.error("TAMGA : erreur onDragDropEvent", err));

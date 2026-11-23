@@ -25,7 +25,9 @@ struct AppState {
 }
 
 fn err_string(e: anyhow::Error) -> String {
-    format!("{e:#}")
+    let s = format!("{e:#}");
+    tamga_core::vlog!("erreur", "{s}");
+    s
 }
 
 fn system(state: &AppState) -> SystemInfo {
@@ -51,6 +53,7 @@ async fn system_info(state: State<'_, AppState>) -> Result<SystemInfo, String> {
 async fn analyze(path: String, state: State<'_, AppState>) -> Result<Analysis, String> {
     // Libère l'ancien paquet (et son dossier temporaire) avant d'en ouvrir un autre.
     *state.session.lock().unwrap() = None;
+    tamga_core::vlog!("interface", "ouverture du fichier {path}");
     let p = PathBuf::from(&path);
     let (session, analysis) = tauri::async_runtime::spawn_blocking(move || -> Result<(Session, Analysis), String> {
         let pkg = convert::load(&p).map_err(err_string)?;
@@ -81,6 +84,7 @@ async fn resolve_deps(
         let _ = app.emit("bundle-progress", serde_json::json!({ "key": key, "detail": detail }));
     });
     let bundle = bundle.unwrap_or(true);
+    tamga_core::vlog!("interface", "recherche des dépendances : {format:?} pour {distro:?}, en ligne : {online}, bibliothèques fournies : {bundle}");
     tauri::async_runtime::spawn_blocking(move || convert::resolve_deps(&s.pkg, &s.elf, format, distro, online, bundle, &sys, Some(progress)))
         .await
         .map_err(|e| e.to_string())
@@ -143,6 +147,12 @@ fn default_output(format: Format, meta: MetaOverride, compression: Option<String
 async fn convert_package(options: ConvertOptions, state: State<'_, AppState>) -> Result<ConvertResult, String> {
     let s = current(&state)?;
     let sys = system(&state);
+    tamga_core::vlog!(
+        "interface",
+        "conversion demandée → {}{}",
+        options.output.display(),
+        options.bundled.as_ref().map(|b| format!(", {} bibliothèque(s) fournie(s)", b.len())).unwrap_or_default()
+    );
     tauri::async_runtime::spawn_blocking(move || convert::convert(&s.pkg, &s.elf, &options, &sys).map_err(err_string))
         .await
         .map_err(|e| e.to_string())?
@@ -188,6 +198,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            check_package,
+            convert_file,
+            set_verbose,
+            list_terminals,
+            open_terminal,
             system_info,
             analyze,
             resolve_deps,
@@ -200,6 +215,118 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
+}
+
+/// Vérifie un paquet créé (TAMGA, puis lintian / rpmlint / namcap s'ils sont installés).
+#[tauri::command]
+async fn check_package(path: String, format: Format, state: State<'_, AppState>) -> Result<tamga_core::check::CheckReport, String> {
+    let sys = system(&state);
+    tamga_core::vlog!("interface", "vérification demandée : {path}");
+    tauri::async_runtime::spawn_blocking(move || tamga_core::check::check(Path::new(&path), format, &sys)).await.map_err(|e| e.to_string())
+}
+
+/// Résultat d'un paquet dans une conversion de plusieurs paquets.
+#[derive(serde::Serialize)]
+struct BatchItem {
+    name: String,
+    result: Option<ConvertResult>,
+    error: Option<String>,
+    /// Certaines dépendances restent introuvables.
+    missing: bool,
+}
+
+/// Convertit un paquet de la liste, sans toucher au paquet ouvert dans l'interface.
+#[tauri::command]
+async fn convert_file(path: String, options: ConvertOptions, bump: bool, app: tauri::AppHandle, state: State<'_, AppState>) -> Result<BatchItem, String> {
+    use tauri::Emitter;
+    let sys = system(&state);
+    tamga_core::vlog!("interface", "conversion par lot : {path} → {:?}", options.format);
+    let progress: tamga_core::repos::Progress = std::sync::Arc::new(move |key: &str, detail: &str| {
+        let _ = app.emit("bundle-progress", serde_json::json!({ "key": key, "detail": detail }));
+    });
+    let p = PathBuf::from(&path);
+    tauri::async_runtime::spawn_blocking(move || {
+        let name = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        let run = || -> anyhow::Result<ConvertResult> {
+            let pkg = convert::load(&p)?;
+            if pkg.format == options.format && !p.is_dir() {
+                anyhow::bail!("err.same_format");
+            }
+            let (_, elf) = convert::analyze(&pkg, &p);
+            let mut o = options.clone();
+            o.deps = None;
+            o.bundled = None;
+            o.meta = Default::default();
+            if bump {
+                o.meta.release = Some(tamga_core::version::bump_release(&pkg.meta.release));
+            }
+            convert::convert_with_progress(&pkg, &elf, &o, &sys, Some(progress))
+        };
+        match run() {
+            Ok(r) => {
+                let missing = r.warnings.iter().any(|w| w == "warn.missing_deps");
+                Ok(BatchItem { name, result: Some(r), error: None, missing })
+            }
+            Err(e) => Ok(BatchItem { name, result: None, error: Some(err_string(e)), missing: false }),
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Réglages du mode verbeux, envoyés par l'interface.
+#[derive(serde::Serialize)]
+struct VerboseState {
+    enabled: bool,
+    journal: String,
+}
+
+/// Active ou désactive le mode verbeux (journal dans ~/.cache/tamga/journal.log).
+#[tauri::command]
+fn set_verbose(enabled: bool, state: State<'_, AppState>) -> Result<VerboseState, String> {
+    let journal = tamga_core::journal::path().to_string_lossy().to_string();
+    if enabled {
+        tamga_core::journal::enable(true, false).map_err(|e| e.to_string())?;
+        let sys = system(&state);
+        tamga_core::vlog!(
+            "système",
+            "{} {} — famille {:?}, {}, glibc {}, outils : {}",
+            sys.name,
+            sys.version_id,
+            sys.family,
+            sys.arch,
+            sys.glibc.clone().unwrap_or_default(),
+            sys.tools.join(", ")
+        );
+    } else {
+        tamga_core::journal::disable();
+    }
+    Ok(VerboseState { enabled, journal })
+}
+
+/// Terminaux installés, et celui choisi automatiquement.
+#[derive(serde::Serialize)]
+struct Terminals {
+    auto: Option<tamga_core::terminal::TerminalInfo>,
+    available: Vec<tamga_core::terminal::TerminalInfo>,
+}
+
+#[tauri::command]
+fn list_terminals() -> Terminals {
+    Terminals { auto: tamga_core::terminal::auto(), available: tamga_core::terminal::available() }
+}
+
+/// Ouvre un terminal qui affiche le journal en direct. Retourne le nom du terminal.
+#[tauri::command]
+fn open_terminal(terminal: String, custom: Option<String>) -> Result<String, String> {
+    let journal = tamga_core::journal::path();
+    if let Some(d) = journal.parent() {
+        let _ = std::fs::create_dir_all(d);
+    }
+    if !journal.exists() {
+        let _ = std::fs::write(&journal, b"");
+    }
+    tamga_core::terminal::open(&terminal, custom.as_deref(), &journal.to_string_lossy()).map_err(err_string)
 }
 
 /// Mode texte : `tamga convert paquet.deb --to rpm` (sans fenêtre).

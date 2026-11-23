@@ -83,6 +83,16 @@ jobs:
           grep "libjpeg.so.8 ←" log2
           dnf -y -q install --nogpgcheck out2/*.rpm
           jpegoptim --version
+      - name: Vérification par rpmlint, mode verbeux
+        run: |
+          set -x
+          dnf -y -q install rpmlint >/dev/null
+          T=tamga-cli/tamga-cli
+          $T convert paquets/icu-devtools_70.1-2_amd64.deb --to rpm --online --test --verbose --out out3/ 2>&1 | tee log5
+          grep "check.reopened" log5
+          grep "check.digest_ok" log5
+          grep -E "rpmlint|E: |W: " log5
+          grep "\[en ligne\]" log5
 
   vers-ubuntu:
     needs: [cli, paquets]
@@ -103,6 +113,46 @@ jobs:
           apt-get install -y -q ./out/*.deb
           uconv --version | tee v3
           grep "ICU 67" v3
+      - name: Plusieurs paquets, dossier de construction, lintian
+        run: |
+          set -x
+          apt-get install -y -q lintian >/dev/null
+          T=tamga-cli/tamga-cli
+          # Plusieurs paquets d'un coup
+          $T convert paquets/icu-devtools_70.1-2_amd64.deb paquets/jpegoptim-*.pkg.tar.zst --to tar --out lot/ 2>&1 | tee l6
+          grep "2 réussi" l6
+          ls lot/*.tar.gz | wc -l | grep 2
+          # Dossier de construction : modifié à la main puis reconstruit
+          $T convert paquets/icu-devtools_70.1-2_amd64.deb --to tar --folder --out dossier/ 2>&1
+          sed -i 's/^Version: 70.1$/Version: 70.1.7/' dossier/icu-devtools-70.1/package.info
+          echo "bonjour" > dossier/icu-devtools-70.1/files/usr/share/doc/ajout.txt
+          $T convert dossier/icu-devtools-70.1 --to tar --out refait/ 2>&1
+          tar -tzf refait/*.tar.gz | grep "usr/share/doc/ajout.txt"
+          ls refait/ | grep "70.1.7"
+          # Vérification par lintian
+          P=$(ls paquets/icu-*.el9*.rpm | head -1)
+          $T convert "$P" --to deb --online --test --fixperms --bump --out out4/ 2>&1 | tee l7
+          grep "check.native_ok" l7
+          grep -E "lintian|E: |W: " l7
+
+  vers-arch:
+    needs: [cli, paquets]
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    steps:
+      - name: Outils
+        run: pacman -Syu --noconfirm --needed namcap >/dev/null
+      - uses: actions/download-artifact@v4
+      - name: .deb Ubuntu 22.04 → paquet Arch, installé sur Arch
+        run: |
+          set -x
+          T=tamga-cli/tamga-cli; chmod +x $T
+          $T convert paquets/icu-devtools_70.1-2_amd64.deb --to arch --online --test --out out/ 2>&1 | tee log8
+          grep "libicuuc.so.70 ←" log8
+          grep "namcap" log8 || true
+          pacman -U --noconfirm out/*.pkg.tar.zst
+          /usr/bin/uconv --version | tee v8
+          grep "ICU 70" v8
 
   cible-distante:
     needs: [cli, paquets]

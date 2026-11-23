@@ -4,6 +4,20 @@
 use crate::model::Metadata;
 
 /// Architecture canonique (vocabulaire TAMGA ≈ uname -m) à partir d'un nom quelconque.
+/// Révision augmentée de 1 : « 3 » → « 4 », « 1ubuntu2 » → « 2ubuntu2 », « 2.fc41 » → « 3.fc41 »,
+/// « » → « 1 ». Sans chiffre au début : « .1 » est ajouté (« lp156.2 » → « lp156.2.1 »).
+pub fn bump_release(r: &str) -> String {
+    let r = r.trim();
+    if r.is_empty() {
+        return "1".into();
+    }
+    let digits: String = r.chars().take_while(|c| c.is_ascii_digit()).collect();
+    match digits.parse::<u64>() {
+        Ok(n) if !digits.is_empty() => format!("{}{}", n + 1, &r[digits.len()..]),
+        _ => format!("{r}.1"),
+    }
+}
+
 pub fn canonical_arch(a: &str) -> String {
     match a.trim().to_ascii_lowercase().as_str() {
         "amd64" | "x86_64" | "x86-64" | "x64" => "x86_64",
@@ -163,6 +177,16 @@ pub fn portable_dep_version(v: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bump() {
+        assert_eq!(bump_release(""), "1");
+        assert_eq!(bump_release("3"), "4");
+        assert_eq!(bump_release("1ubuntu2"), "2ubuntu2");
+        assert_eq!(bump_release("2.fc41"), "3.fc41");
+        assert_eq!(bump_release("lp156.2"), "lp156.2.1");
+        assert_eq!(bump_release("09"), "10");
+    }
 
     fn m(v: &str, r: &str, e: Option<u32>) -> Metadata {
         Metadata { version: v.into(), release: r.into(), epoch: e, ..Default::default() }

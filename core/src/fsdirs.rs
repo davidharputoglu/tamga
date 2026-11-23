@@ -133,6 +133,58 @@ pub fn apply_usrmerge(tree: &mut Tree, family: Family) -> usize {
     n
 }
 
+/// Remet des droits « propres » comme un paquet officiel (équivalent de dh_fixperms) :
+/// tout appartient à root ; dossiers en 755 ; programmes en 755 ; documents, icônes,
+/// en-têtes et fichiers de configuration en 644 ; aucun fichier modifiable par les autres.
+/// Les bits setuid/setgid des programmes sont gardés (ex. chrome-sandbox).
+/// Retourne le nombre d'entrées modifiées.
+pub fn fix_permissions(tree: &mut Tree, family: Family) -> usize {
+    let exec_dirs = ["usr/bin/", "usr/sbin/", "bin/", "sbin/", "usr/games/", "usr/local/bin/", "usr/local/sbin/", "etc/init.d/"];
+    let plain_dirs = ["usr/share/doc/", "usr/share/man/", "usr/share/info/", "usr/share/applications/", "usr/share/icons/", "usr/share/pixmaps/", "usr/share/locale/", "usr/include/", "usr/share/metainfo/", "usr/share/mime/"];
+    let plain_ext = [".desktop", ".h", ".hpp", ".pc", ".la", ".a", ".png", ".svg", ".xpm", ".jpg", ".txt", ".md", ".mo", ".json", ".xml", ".html", ".css", ".gz", ".conf", ".service", ".rules", ".policy", ".appdata.xml", ".metainfo.xml"];
+    let mut changed = 0;
+    let paths: Vec<String> = tree.entries.keys().cloned().collect();
+    for p in paths {
+        // Le contenu est lu avant de modifier l'entrée (programme ELF ou script ?).
+        let looks_exec = {
+            let e = &tree.entries[&p];
+            match &e.kind {
+                Kind::File(b) => {
+                    let mut head = [0u8; 4];
+                    let n = tree.store.open(b).ok().and_then(|mut f| std::io::Read::read(&mut f, &mut head).ok()).unwrap_or(0);
+                    let magic = &head[..n];
+                    (magic.starts_with(b"\x7fELF") || magic.starts_with(b"#!")) && e.mode & 0o111 != 0
+                }
+                _ => false,
+            }
+        };
+        let e = tree.entries.get_mut(&p).unwrap();
+        let before = (e.mode, e.uid, e.gid, e.user.clone(), e.group.clone());
+        e.uid = 0;
+        e.gid = 0;
+        e.user = "root".into();
+        e.group = "root".into();
+        match &e.kind {
+            Kind::Dir => e.mode = 0o755,
+            Kind::Symlink(_) => {}
+            Kind::File(_) => {
+                let special = e.mode & 0o6000;
+                let lower = p.to_ascii_lowercase();
+                let plain = plain_dirs.iter().any(|d| p.starts_with(d))
+                    || plain_ext.iter().any(|x| lower.ends_with(x))
+                    || e.config
+                    || (family == Family::Debian && looks_like_shared_lib(&p) && !looks_exec);
+                let exec = !plain && (exec_dirs.iter().any(|d| p.starts_with(d)) || looks_exec || e.mode & 0o100 != 0);
+                e.mode = if exec { 0o755 | special } else { 0o644 };
+            }
+        }
+        if before != (e.mode, e.uid, e.gid, e.user.clone(), e.group.clone()) {
+            changed += 1;
+        }
+    }
+    changed
+}
+
 /// Est-ce une bibliothèque partagée par son nom ? (libfoo.so, libfoo.so.1.2)
 pub fn looks_like_shared_lib(path: &str) -> bool {
     let b = basename(path);

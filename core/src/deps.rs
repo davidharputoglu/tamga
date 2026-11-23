@@ -521,6 +521,23 @@ pub fn resolve(meta: &Metadata, elf: &ElfInfo, ctx: &ResolveCtx) -> Vec<DepItem>
             it.method = "self".into();
         }
     }
+    if crate::journal::on() {
+        crate::journal::write("dépendances", &format!("cible : {:?} {:?} (famille {:?}), vérifications locales : {}", ctx.format, ctx.distro, fam, if local { "oui" } else { "non" }));
+        for it in &items {
+            crate::journal::write(
+                "dépendances",
+                &format!(
+                    "{} → {} [{:?}, {}]{}{}",
+                    it.source,
+                    it.target.as_ref().map(|t| t.display_std()).unwrap_or_else(|| "—".into()),
+                    it.status,
+                    it.method,
+                    it.detail.as_ref().map(|d| format!(" {d}")).unwrap_or_default(),
+                    if it.keep { "" } else { " (non gardée)" }
+                ),
+            );
+        }
+    }
     items
 }
 
@@ -592,7 +609,15 @@ pub fn clear_cache() -> std::io::Result<()> {
         if f.exists() {
             std::fs::remove_file(f)?;
         }
+        // Listes de paquets, paquets et bibliothèques téléchargés.
+        for sub in ["repos", "libs"] {
+            let p = d.join(sub);
+            if p.exists() {
+                std::fs::remove_dir_all(p)?;
+            }
+        }
     }
+    crate::vlog!("tamga", "cache vidé");
     Ok(())
 }
 
@@ -651,6 +676,7 @@ impl Repology {
             urlencode(name)
         );
         let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(12)).redirects(5).try_proxy_from_env(true).build();
+        crate::vlog!("en ligne", "Repology : GET {url}");
         match agent.get(&url).set("User-Agent", &format!("TAMGA/{} (Linux package converter)", crate::TAMGA_VERSION)).call() {
             Ok(resp) => {
                 self.failures = 0;

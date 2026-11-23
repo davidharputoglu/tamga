@@ -21,6 +21,14 @@ Utilisation / Usage:
                bibliothèques absentes de la cible, pour les fournir avec le paquet
                / look up dependencies online and bundle libraries the target lacks
   --no-bundle  ne pas fournir les bibliothèques manquantes / do not bundle missing libraries
+  --verbose    affiche tout ce que fait TAMGA / show everything TAMGA does (aussi -v)
+  --arch A     architecture du paquet créé / target architecture (x86_64, aarch64, i686, armv7, noarch…)
+  --bump       révision + 1 / increase the release number by one
+  --fixperms   droits des fichiers « propres » / sanitize file permissions and owners
+  --folder     écrit un dossier de construction modifiable au lieu du paquet / write an editable build folder
+  --test       vérifie le paquet créé (TAMGA, puis lintian, rpmlint ou namcap) / check the created package
+Plusieurs paquets / several packages : tamga convert a.deb b.deb c.deb --to rpm --out dossier/
+Un dossier de construction se reconvertit / a build folder converts back : tamga convert mon-dossier/ --to deb
   tamga system
 
 Formats lus / read : .deb .rpm Arch (.pkg.tar.*) .sh (TAMGA) Slackware (.txz .tgz .tbz .tlz)
@@ -49,6 +57,12 @@ struct Args {
     compress: Option<String>,
     install: bool,
     bundle: bool,
+    verbose: bool,
+    bump: bool,
+    fixperms: bool,
+    folder: bool,
+    test: bool,
+    files: Vec<PathBuf>,
 }
 
 fn parse(args: &[String]) -> Result<Args> {
@@ -66,6 +80,12 @@ fn parse(args: &[String]) -> Result<Args> {
         compress: None,
         install: false,
         bundle: true,
+        verbose: false,
+        bump: false,
+        fixperms: false,
+        folder: false,
+        test: false,
+        files: Vec::new(),
     };
     let mut i = 1;
     let val = |i: &mut usize| -> Result<String> {
@@ -82,13 +102,24 @@ fn parse(args: &[String]) -> Result<Args> {
             "--scripts" => a.scripts = true,
             "--online" => a.online = true,
             "--no-bundle" => a.bundle = false,
+            "--verbose" | "-v" => a.verbose = true,
+            "--arch" | "--target" => a.meta.arch = Some(val(&mut i)?),
+            "--bump" => a.bump = true,
+            "--fixperms" => a.fixperms = true,
+            "--folder" | "--generate" => a.folder = true,
+            "--test" => a.test = true,
             "--no-usrmerge" => a.usrmerge = false,
             "--json" => a.json = true,
             "--name" => a.meta.name = Some(val(&mut i)?),
             "--version" => a.meta.version = Some(val(&mut i)?),
             "--release" => a.meta.release = Some(val(&mut i)?),
             s if s.starts_with('-') => bail!("option inconnue : {s}\n\n{USAGE}"),
-            s => a.file = Some(PathBuf::from(s)),
+            s => {
+                a.files.push(PathBuf::from(s));
+                if a.file.is_none() {
+                    a.file = Some(PathBuf::from(s));
+                }
+            }
         }
         i += 1;
     }
@@ -109,6 +140,10 @@ fn status_label(s: Status) -> &'static str {
 /// Progression des recherches en ligne, sur la sortie d'erreur.
 fn cli_progress() -> crate::repos::Progress {
     std::sync::Arc::new(|key: &str, detail: &str| {
+        if crate::journal::on() {
+            crate::journal::write("progression", &format!("{key} {detail}"));
+            return;
+        }
         let what = match key {
             "bundle.search" => "Recherche / looking for",
             "bundle.index" => "Liste des paquets / package list",
@@ -117,6 +152,75 @@ fn cli_progress() -> crate::repos::Progress {
         };
         eprintln!("… {what} : {detail}");
     })
+}
+
+/// Convertit un paquet (ou un dossier de construction) selon les options de la ligne de commande.
+fn convert_one(a: &Args, f: &std::path::Path, to: Format, sys: &SystemInfo) -> Result<()> {
+    let pkg = convert::load(f)?;
+    if pkg.format == to && !f.is_dir() {
+        bail!("le paquet est déjà au format {}", to.label());
+    }
+    let (_, elf) = convert::analyze(&pkg, f);
+    let mut meta = a.meta.clone();
+    if a.bump {
+        let cur = meta.release.clone().unwrap_or_else(|| pkg.meta.release.clone());
+        meta.release = Some(crate::version::bump_release(&cur));
+    }
+    let out = a.out.clone().unwrap_or_else(|| f.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| PathBuf::from(".")));
+    let out = if out.as_os_str().is_empty() { PathBuf::from(".") } else { out };
+    // Plusieurs paquets : --out est toujours un dossier.
+    let out = if a.files.len() > 1 && !out.is_dir() {
+        std::fs::create_dir_all(&out)?;
+        out
+    } else {
+        out
+    };
+    let opts = ConvertOptions {
+        format: to,
+        distro: a.distro,
+        meta,
+        deps: None,
+        include_scripts: a.scripts,
+        usrmerge: a.usrmerge,
+        online: a.online,
+        output: out,
+        compression: a.compress.clone(),
+        bundle: a.bundle,
+        bundled: None,
+        fixperms: a.fixperms,
+        as_folder: a.folder,
+    };
+    let r = convert::convert_with_progress(&pkg, &elf, &opts, sys, Some(cli_progress()))?;
+    println!("{}", r.path);
+    for b in &r.bundled {
+        eprintln!("Fournie avec le paquet / bundled : {b}");
+    }
+    for w in &r.warnings {
+        eprintln!("Avertissement / warning : {w}");
+    }
+    if a.folder {
+        eprintln!("Dossier de construction / build folder. Ensuite / then : {}", r.install_command);
+        return Ok(());
+    }
+    if a.test {
+        let rep = crate::check::check(std::path::Path::new(&r.path), to, sys);
+        eprintln!("Vérification / check : {} erreur(s) / error(s), {} avertissement(s) / warning(s)", rep.errors, rep.warnings);
+        for l in &rep.lines {
+            eprintln!("  [{}] {}", l.level, l.text);
+        }
+    }
+    if a.install {
+        let plan = crate::install::plan(to, std::path::Path::new(&r.path), sys, crate::install::Elevation::Sudo)?;
+        eprintln!("→ {}", plan.display);
+        let code = crate::install::run(&plan, |l| eprintln!("{l}"))?;
+        if code != 0 {
+            bail!("l'installation a échoué (code {code})");
+        }
+        eprintln!("Installation terminée / installed.");
+    } else {
+        eprintln!("Installation : {}", r.install_command);
+    }
+    Ok(())
 }
 
 /// Lance le mode texte. Retourne le code de sortie.
@@ -132,7 +236,12 @@ pub fn run(args: &[String]) -> i32 {
 
 fn run_inner(args: &[String]) -> Result<()> {
     let a = parse(args)?;
+    if a.verbose {
+        // Sur la sortie d'erreur, et aussi dans ~/.cache/tamga/journal.log
+        let _ = crate::journal::enable(true, true);
+    }
     let sys = SystemInfo::detect();
+    crate::vlog!("système", "{} {} — famille {:?}, {} , glibc {}, outils : {}", sys.name, sys.version_id, sys.family, sys.arch, sys.glibc.clone().unwrap_or_default(), sys.tools.join(", "));
     match a.cmd.as_str() {
         "--version" | "-V" => {
             println!("TAMGA {}", crate::TAMGA_VERSION);
@@ -206,49 +315,39 @@ fn run_inner(args: &[String]) -> Result<()> {
             Ok(())
         }
         "convert" => {
-            let f = a.file.context(USAGE)?;
+            if a.files.is_empty() {
+                bail!("{USAGE}");
+            }
             let to = a.to.context("--to <deb|rpm|arch|sh|slack|tar|slp>")?;
             if !to.writable() {
                 bail!("TAMGA sait lire les paquets Solaris mais pas en fabriquer");
             }
-            let pkg = convert::load(&f)?;
-            if pkg.format == to {
-                bail!("le paquet est déjà au format {}", to.label());
+            if a.files.len() > 1 && (a.meta.name.is_some() || a.meta.version.is_some()) {
+                bail!("--name et --version ne s'appliquent qu'à un seul paquet / only for a single package");
             }
-            let (_, elf) = convert::analyze(&pkg, &f);
-            let out = a.out.unwrap_or_else(|| f.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| PathBuf::from(".")));
-            let out = if out.as_os_str().is_empty() { PathBuf::from(".") } else { out };
-            let opts = ConvertOptions {
-                format: to,
-                distro: a.distro,
-                meta: a.meta,
-                deps: None,
-                include_scripts: a.scripts,
-                usrmerge: a.usrmerge,
-                online: a.online,
-                output: out,
-                compression: a.compress,
-                bundle: a.bundle,
-                bundled: None,
-            };
-            let r = convert::convert_with_progress(&pkg, &elf, &opts, &sys, Some(cli_progress()))?;
-            println!("{}", r.path);
-            for b in &r.bundled {
-                eprintln!("Fournie avec le paquet / bundled : {b}");
-            }
-            for w in &r.warnings {
-                eprintln!("Avertissement / warning : {w}");
-            }
-            if a.install {
-                let plan = crate::install::plan(to, std::path::Path::new(&r.path), &sys, crate::install::Elevation::Sudo)?;
-                eprintln!("→ {}", plan.display);
-                let code = crate::install::run(&plan, |l| eprintln!("{l}"))?;
-                if code != 0 {
-                    bail!("l'installation a échoué (code {code})");
+            // Plusieurs paquets : chacun est converti, et un échec n'arrête pas les autres.
+            let total = a.files.len();
+            let mut failed = 0;
+            for (n, f) in a.files.iter().enumerate() {
+                if total > 1 {
+                    eprintln!("\n[{}/{}] {}", n + 1, total, f.display());
                 }
-                eprintln!("Installation terminée / installed.");
-            } else {
-                eprintln!("Installation : {}", r.install_command);
+                match convert_one(&a, f, to, &sys) {
+                    Ok(()) => {}
+                    Err(e) => {
+                        failed += 1;
+                        eprintln!("TAMGA : {}: {e:#}", f.display());
+                        if total == 1 {
+                            return Err(e);
+                        }
+                    }
+                }
+            }
+            if total > 1 {
+                eprintln!("\n{} réussi(s) / succeeded, {} échec(s) / failed", total - failed, failed);
+                if failed > 0 {
+                    bail!("{failed} paquet(s) non converti(s)");
+                }
             }
             Ok(())
         }

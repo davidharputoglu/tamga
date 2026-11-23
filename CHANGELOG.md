@@ -39,6 +39,18 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/).
   police Noto Sans Old Turkic (SIL Open Font License 1.1).
 - Fenêtre « Vos mots en runes » : vos propres mots, écrits automatiquement en runes de l'Orkhon
   (formes dures et douces des consonnes, ligatures ng, nç, nt), avec aperçu ; ils défilent pendant le travail.
+- Bibliothèques manquantes fournies avec le paquet : recherche dans les dépôts officiels de la distribution
+  d'origine (Debian, Ubuntu, Fedora, AlmaLinux/EPEL, openSUSE, Arch), téléchargement HTTPS vérifié par
+  SHA-256, dossier privé /usr/lib/tamga/<paquet> et programmes lancés avec ce dossier ; ce dont ces
+  bibliothèques ont besoin est vérifié à son tour. Pour une cible distante (Fedora, openSUSE, Debian/Ubuntu),
+  la présence des bibliothèques est vérifiée dans ses propres dépôts. Tests réels automatiques (GitHub Actions).
+- Mode verbeux : journal détaillé affiché en direct dans un terminal (automatique ou choisi, ou commande
+  personnalisée) et enregistré dans ~/.cache/tamga/journal.log ; `--verbose` en mode texte. Fenêtre « Paramètres ».
+- Plusieurs paquets d'un coup (interface et mode texte).
+- Vérification du paquet créé : relecture par TAMGA, dpkg-deb / rpm -K, puis lintian, rpmlint ou namcap ;
+  résultat expliqué en clair (`--test` en mode texte).
+- Dossier de construction modifiable (package.info + files/ + scripts/), rouvrable dans TAMGA (`--folder`).
+- Corriger les droits des fichiers (`--fixperms`), choisir l'architecture (`--arch`), révision + 1 (`--bump`).
 
 ### Corrigé
 - Le clic sur la zone de dépôt ouvre la vraie fenêtre de choix de fichier (module dialog).

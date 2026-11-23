@@ -102,6 +102,40 @@ pub fn run(cmd: &str, args: &[&str], timeout_s: u64) -> Option<String> {
     run_status(cmd, args, timeout_s).and_then(|(ok, out)| if ok { Some(out) } else { None })
 }
 
+/// Lance une commande et garde tout : code de sortie (None si délai dépassé), sortie, erreurs.
+pub fn run_full(cmd: &str, args: &[&str], timeout_s: u64) -> Option<(Option<i32>, String, String)> {
+    let exe = which(cmd)?;
+    let mut child = Command::new(exe).args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().ok()?;
+    let mut so = child.stdout.take()?;
+    let mut se = child.stderr.take()?;
+    let t1 = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = so.read_to_string(&mut s);
+        s
+    });
+    let t2 = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = se.read_to_string(&mut s);
+        s
+    });
+    let start = Instant::now();
+    let code = loop {
+        match child.try_wait() {
+            Ok(Some(st)) => break st.code(),
+            Ok(None) if start.elapsed() > Duration::from_secs(timeout_s) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+            Err(_) => break None,
+        }
+    };
+    let (out, err) = (t1.join().unwrap_or_default(), t2.join().unwrap_or_default());
+    crate::vlog!("système", "$ {cmd} {} → code {:?} ({} ms)", args.join(" "), code, start.elapsed().as_millis());
+    Some((code, out, err))
+}
+
 /// Comme `run` mais retourne aussi le statut.
 pub fn run_status(cmd: &str, args: &[&str], timeout_s: u64) -> Option<(bool, String)> {
     let exe = which(cmd)?;
@@ -135,6 +169,15 @@ pub fn run_status(cmd: &str, args: &[&str], timeout_s: u64) -> Option<(bool, Str
         }
     };
     let out = reader.join().unwrap_or_default();
+    if crate::journal::on() {
+        let code = status.map(|s| s.code().map(|c| c.to_string()).unwrap_or_else(|| "signal".into())).unwrap_or_else(|| "délai dépassé / timeout".into());
+        let lines: Vec<&str> = out.lines().filter(|l| !l.trim().is_empty()).collect();
+        let shown = if lines.len() <= 4 { lines.join(" | ") } else { format!("{} | … ({} lignes)", lines[..3].join(" | "), lines.len()) };
+        crate::journal::write(
+            "système",
+            &format!("$ {cmd} {} → code {code} ({} ms){}", args.join(" "), start.elapsed().as_millis(), if shown.is_empty() { String::new() } else { format!(" : {shown}") }),
+        );
+    }
     status.map(|s| (s.success(), out))
 }
 

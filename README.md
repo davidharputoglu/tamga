@@ -59,6 +59,20 @@ Smart Linux package converter, like Alien but with a graphical interface: **.deb
   install command (apt, dnf, zypper, pacman), backs up replaced files and provides an uninstaller.
 - **Original install scripts** adapted to the target format (advanced option, off by default).
 - **100% Rust engine**: no need for dpkg, rpmbuild or makepkg to convert.
+- **Missing libraries supplied automatically**: when a library used by the programs does not exist on
+  the target distribution (for example ICU 70 on Fedora), TAMGA downloads it over HTTPS from the official
+  repositories of the package's own distribution (Debian, Ubuntu, Fedora, AlmaLinux/EPEL, openSUSE, Arch),
+  checks its SHA-256 checksum and stores it in `/usr/lib/tamga/<package>`; the package's programs are
+  started with it, the rest of the system is not touched. Tested for real: an Ubuntu 22.04 .deb running
+  on Fedora, an Arch package on Fedora, an AlmaLinux 9 .rpm on Ubuntu 24.04.
+- **Several packages at once**: choose or drop several files, they are all converted to the same format.
+- **Package check**: TAMGA reopens the created package, then lets the distribution's official checker
+  (lintian, rpmlint, namcap) review it, and explains the result in plain words.
+- **Build folder**: instead of a finished package, get a folder (files + an information sheet) to edit
+  by hand, then open it again in TAMGA to build the package.
+- **Alien's other options**: fix file permissions, choose the architecture, increase the release by 1.
+- **Verbose mode** (Settings): everything TAMGA does is shown live in a terminal of your choice
+  and saved in `~/.cache/tamga/journal.log`.
 - **Command-line mode**: `tamga convert package.deb --to rpm [--install]` (see `tamga --help-cli`).
 - **Old Turkic runes**: while TAMGA works, the words *tamga* and *türük* written in the Orkhon
   script light up around the seal. With the rune button at the top, you can choose your own words:
@@ -177,6 +191,20 @@ dépendances pour chaque distribution.
   remplacés et fournit un désinstallateur.
 - **Scripts d'installation** d'origine adaptés au format cible (option avancée, désactivée par défaut).
 - **Moteur 100 % Rust** : aucun besoin de dpkg, rpmbuild ou makepkg pour convertir.
+- **Bibliothèques manquantes fournies automatiquement** : quand une bibliothèque utilisée par les
+  programmes n'existe pas sur la distribution cible (par exemple ICU 70 sur Fedora), TAMGA la télécharge
+  en HTTPS dans les dépôts officiels de la distribution d'origine du paquet (Debian, Ubuntu, Fedora,
+  AlmaLinux/EPEL, openSUSE, Arch), vérifie son empreinte SHA-256 et la range dans `/usr/lib/tamga/<paquet>` ;
+  les programmes du paquet la trouvent, le reste du système n'est pas touché. Testé en vrai : un .deb
+  d'Ubuntu 22.04 sur Fedora, un paquet Arch sur Fedora, un .rpm d'AlmaLinux 9 sur Ubuntu 24.04.
+- **Plusieurs paquets d'un coup** : choisissez ou déposez plusieurs fichiers, tous sont convertis vers le même format.
+- **Vérification du paquet** : TAMGA rouvre le paquet créé, puis le fait contrôler par l'outil officiel
+  de la distribution (lintian, rpmlint, namcap) et explique le résultat en mots simples.
+- **Dossier de construction** : au lieu d'un paquet fini, un dossier (fichiers + fiche d'informations)
+  à retoucher à la main, puis à rouvrir dans TAMGA pour fabriquer le paquet.
+- **Les autres options d'Alien** : corriger les droits des fichiers, choisir l'architecture, augmenter la révision de 1.
+- **Mode verbeux** (Paramètres) : tout ce que fait TAMGA s'affiche en direct dans le terminal de votre
+  choix et s'enregistre dans `~/.cache/tamga/journal.log`.
 - **Mode texte** : `tamga convert paquet.deb --to rpm [--install]` (voir `tamga --help-cli`).
 - **Runes turciques** : pendant le travail, les mots *tamga* et *türük* écrits en alphabet de
   l'Orkhon s'illuminent autour du sceau. Le bouton runique en haut permet de choisir vos propres
@@ -297,6 +325,20 @@ bağımlılık çevirisiyle.
   kaldırma aracı sunar.
 - **Orijinal kurulum betikleri** hedef biçime uyarlanır (gelişmiş seçenek, varsayılan olarak kapalı).
 - **%100 Rust motoru**: dönüştürmek için dpkg, rpmbuild veya makepkg gerekmez.
+- **Eksik kütüphaneler kendiliğinden sağlanır**: programların kullandığı bir kütüphane hedef dağıtımda
+  yoksa (örneğin Fedora'da ICU 70), TAMGA onu paketin kendi dağıtımının resmî depolarından (Debian, Ubuntu,
+  Fedora, AlmaLinux/EPEL, openSUSE, Arch) HTTPS ile indirir, SHA-256 özetini denetler ve
+  `/usr/lib/tamga/<paket>` içine yerleştirir; paketin programları onu bulur, sistemin geri kalanına
+  dokunulmaz. Gerçek ortamda denendi: Fedora'da Ubuntu 22.04 .deb paketi, Fedora'da Arch paketi,
+  Ubuntu 24.04'te AlmaLinux 9 .rpm paketi.
+- **Aynı anda birkaç paket**: birkaç dosya seçin ya da bırakın, hepsi aynı biçime dönüştürülür.
+- **Paket denetimi**: TAMGA oluşturulan paketi yeniden açar, sonra dağıtımın resmî denetim aracına
+  (lintian, rpmlint, namcap) kontrol ettirir ve sonucu basit sözcüklerle açıklar.
+- **Yapı klasörü**: bitmiş paket yerine elle düzenlenebilecek bir klasör (dosyalar + bilgi fişi);
+  sonra paketi oluşturmak için TAMGA'da yeniden açılır.
+- **Alien'in diğer seçenekleri**: dosya izinlerini düzeltme, mimariyi seçme, revizyonu 1 artırma.
+- **Ayrıntılı mod** (Ayarlar): TAMGA'nın yaptığı her şey seçtiğiniz uçbirimde canlı gösterilir ve
+  `~/.cache/tamga/journal.log` dosyasına kaydedilir.
 - **Komut satırı modu**: `tamga convert paket.deb --to rpm [--install]` (bkz. `tamga --help-cli`).
 - **Köktürk runları**: TAMGA çalışırken, Orhun yazısıyla yazılmış *tamga* ve *türük* sözcükleri
   mührün çevresinde parlar. Üstteki run düğmesiyle kendi sözcüklerinizi seçebilirsiniz: TAMGA

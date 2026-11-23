@@ -94,6 +94,7 @@ pub fn plan(format: Format, file: &Path, sys: &SystemInfo, elevation: Elevation)
 /// Lance l'installation ; chaque ligne affichée est transmise à `on_line`.
 /// Retourne le code de sortie.
 pub fn run(plan: &InstallPlan, mut on_line: impl FnMut(String) + Send + 'static) -> Result<i32> {
+    crate::vlog!("installation", "$ {}", plan.argv.join(" "));
     let mut child = Command::new(&plan.argv[0])
         .args(&plan.argv[1..])
         .stdin(Stdio::null())
@@ -120,6 +121,7 @@ pub fn run(plan: &InstallPlan, mut on_line: impl FnMut(String) + Send + 'static)
     }
     drop(tx);
     for l in rx {
+        crate::vlog!("installation", "{l}");
         on_line(l);
     }
     for t in threads {

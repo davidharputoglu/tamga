@@ -10,7 +10,9 @@
 //! vérifier les dépendances disponibles sur la machine.
 
 pub mod ar;
+pub mod builddir;
 pub mod bundle;
+pub mod check;
 pub mod cli;
 pub mod compress;
 pub mod convert;
@@ -22,6 +24,7 @@ pub mod distro;
 pub mod elf;
 pub mod fsdirs;
 pub mod install;
+pub mod journal;
 pub mod lzw;
 pub mod mapping;
 pub mod model;
@@ -34,6 +37,7 @@ pub mod slack;
 pub mod slp;
 pub mod svr4;
 pub mod tarutil;
+pub mod terminal;
 pub mod tree;
 pub mod version;
 

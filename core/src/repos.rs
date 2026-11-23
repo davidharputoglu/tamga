@@ -676,9 +676,12 @@ impl Fetcher {
         if self.offline() || self.host_failures.get(&host).copied().unwrap_or(0) >= 2 {
             bail!("hors ligne ({host})");
         }
+        crate::vlog!("en ligne", "GET {url}");
+        let started = std::time::Instant::now();
         let resp = match self.agent.get(url).call() {
             Ok(r) => {
                 self.successes += 1;
+                crate::vlog!("en ligne", "→ HTTP {} ({})", r.status(), r.header("content-length").map(|l| crate::journal::size(l.parse().unwrap_or(0))).unwrap_or_else(|| "taille inconnue".into()));
                 r
             }
             Err(ureq::Error::Status(code, _)) => {
@@ -704,17 +707,23 @@ impl Fetcher {
         out.flush()?;
         drop(out);
         std::fs::rename(&tmp, dest)?;
+        crate::vlog!("en ligne", "→ {} reçus en {:.1} s", crate::journal::size(n), started.elapsed().as_secs_f64());
         Ok(())
+    }
+
+    fn cache_path(&self, url: &str) -> PathBuf {
+        let digest = hex::encode(&Sha256::digest(url.as_bytes())[..8]);
+        let file = url.rsplit('/').next().unwrap_or("x");
+        self.cache.join("repos").join(format!("{digest}-{}", safe_name(file)))
     }
 
     /// Fichier en cache, retéléchargé s'il est plus vieux que `ttl` (0 = jamais).
     fn cached(&mut self, url: &str, ttl: u64) -> Result<PathBuf> {
-        let digest = hex::encode(&Sha256::digest(url.as_bytes())[..8]);
-        let file = url.rsplit('/').next().unwrap_or("x");
-        let dest = self.cache.join("repos").join(format!("{digest}-{}", safe_name(file)));
+        let dest = self.cache_path(url);
         if let Ok(m) = std::fs::metadata(&dest) {
             let age = m.modified().ok().and_then(|t| t.elapsed().ok()).map(|d| d.as_secs()).unwrap_or(u64::MAX);
             if ttl == 0 || age < ttl {
+                crate::vlog!("en ligne", "cache : {} ({})", url, dest.display());
                 return Ok(dest);
             }
         }
@@ -740,6 +749,7 @@ impl Fetcher {
         for base in &repo.bases {
             match self.load_index(base, &repo.kind) {
                 Ok(idx) => {
+                    crate::vlog!("dépôts", "{} : {} paquets, {} bibliothèques connues", repo.label, idx.packages.len(), idx.by_soname.len());
                     result = Some(Arc::new(idx));
                     break;
                 }
@@ -803,13 +813,17 @@ impl Fetcher {
 
     /// Télécharge un paquet (vérifié par son empreinte SHA-256) ; les paquets restent en cache.
     pub fn package(&mut self, p: &RepoPackage, label: &str) -> Result<PathBuf> {
-        self.say("bundle.download", &format!("{} {} — {label}", p.name, p.version));
+        if !self.cache_path(&p.url).exists() {
+            self.say("bundle.download", &format!("{} {} — {label}", p.name, p.version));
+        }
         let path = self.cached(&p.url, 0)?;
         if let Some(expected) = &p.sha256 {
             if !file_sha256(&path)?.eq_ignore_ascii_case(expected) {
                 let _ = std::fs::remove_file(&path);
+                crate::vlog!("en ligne", "empreinte SHA-256 INCORRECTE pour {} : fichier rejeté", p.name);
                 bail!("empreinte SHA-256 incorrecte pour {}", p.name);
             }
+            crate::vlog!("en ligne", "empreinte SHA-256 vérifiée : {} {}", p.name, p.version);
         }
         Ok(path)
     }
@@ -823,9 +837,10 @@ pub fn file_sha256(path: &Path) -> Result<String> {
 }
 
 fn log_debug(msg: &str) {
-    if std::env::var_os("TAMGA_DEBUG").is_some() {
+    if std::env::var_os("TAMGA_DEBUG").is_some() && !crate::journal::on() {
         eprintln!("[tamga] {msg}");
     }
+    crate::vlog!("en ligne", "{msg}");
 }
 
 #[cfg(test)]
