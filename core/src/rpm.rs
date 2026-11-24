@@ -111,6 +111,7 @@ const RPMFILE_DOC: u32 = 1 << 1;
 const RPMFILE_LICENSE: u32 = 1 << 7;
 
 fn file_flags(path: &str, e: &crate::tree::Entry) -> u32 {
+    let path = path.trim_start_matches('/');
     if e.config && e.is_file() {
         return RPMFILE_CONFIG | RPMFILE_NOREPLACE;
     }
