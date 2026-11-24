@@ -29,6 +29,7 @@ pub mod lzw;
 pub mod mapping;
 pub mod model;
 pub mod pacman;
+pub mod polish;
 pub mod repos;
 pub mod rpm;
 pub mod scripts;
@@ -51,6 +52,26 @@ pub const TAMGA_VERSION: &str = "0.1";
 
 /// Identité utilisée par défaut comme mainteneur des paquets convertis.
 pub const DEFAULT_MAINTAINER: &str = "TAMGA <tamga@localhost>";
+
+/// Responsable du paquet quand l'original n'en indique pas : comme les outils Debian
+/// (DEBFULLNAME / DEBEMAIL, puis NAME / EMAIL, puis l'identité git de l'utilisateur),
+/// sinon « TAMGA <tamga@localhost> ».
+pub fn default_maintainer() -> String {
+    static CACHE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    CACHE
+        .get_or_init(|| {
+            let env = |k: &str| std::env::var(k).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+            let git = |k: &str| distro::run("git", &["config", "--get", k], 5).map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+            let mail = env("DEBEMAIL").or_else(|| env("EMAIL")).or_else(|| git("user.email"));
+            let name = env("DEBFULLNAME").or_else(|| env("NAME")).or_else(|| git("user.name"));
+            match (name, mail) {
+                (Some(n), Some(m)) if m.contains('@') => format!("{n} <{m}>"),
+                (None, Some(m)) if m.contains('@') => format!("TAMGA <{m}>"),
+                _ => DEFAULT_MAINTAINER.to_string(),
+            }
+        })
+        .clone()
+}
 
 #[cfg(test)]
 mod send_sync {

@@ -358,6 +358,16 @@ pub fn convert_with_progress(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions
     if meta.name.trim().is_empty() {
         bail!("err.empty_name");
     }
+    // Archive sans informations : un résumé et une description plutôt que des champs vides.
+    let origin_label = meta.origin_format.or(Some(pkg.format)).map(|f| f.label().to_string()).unwrap_or_default();
+    if meta.summary.trim().is_empty() || meta.summary.trim() == meta.name.trim() {
+        meta.summary = format!("Converted by TAMGA from a {origin_label} file");
+    }
+    if meta.description.trim().is_empty() || meta.description.trim() == meta.name.trim() {
+        meta.description = format!(
+            "This package was created by TAMGA from a {origin_label} file.\nIts files are those of the original archive.\nEdit the package information in TAMGA to describe it better."
+        );
+    }
     let started = std::time::Instant::now();
     crate::vlog!(
         "conversion",
@@ -502,6 +512,12 @@ pub fn convert_with_progress(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions
     if opts.include_scripts && !meta.scripts.is_empty() {
         warnings.push("warn.scripts_included".into());
     }
+    // Finitions selon les règles de la distribution (liens, copyright, journal, licence).
+    let version_text = match opts.format {
+        Format::Deb => version::deb_version(&meta),
+        _ => meta.version.clone(),
+    };
+    warnings.extend(crate::polish::polish(opts.format, &mut tree, &meta, &version_text)?);
 
     match opts.format {
         Format::Deb => {

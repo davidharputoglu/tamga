@@ -116,7 +116,7 @@ pub fn pkginfo_text(meta: &Metadata, tree: &Tree, o: &PacmanWriteOpts, builddate
         s.push_str(&format!("url = {}\n", one_line(&meta.url)));
     }
     s.push_str(&format!("builddate = {builddate}\n"));
-    let packager = if meta.maintainer.trim().is_empty() { crate::DEFAULT_MAINTAINER.to_string() } else { one_line(&meta.maintainer) };
+    let packager = if meta.maintainer.trim().is_empty() { crate::default_maintainer() } else { one_line(&meta.maintainer) };
     s.push_str(&format!("packager = {packager}\n"));
     s.push_str(&format!("size = {}\n", tree.total_size()));
     s.push_str(&format!("arch = {}\n", version::pacman_arch(&meta.arch)));

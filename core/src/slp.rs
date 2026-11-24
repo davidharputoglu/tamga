@@ -212,7 +212,8 @@ pub fn write(meta: &Metadata, tree: &Tree, out: &Path) -> Result<bool> {
         None => (0, true),
     };
     let release: u32 = meta.release.chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().unwrap_or(1);
-    let maint = if meta.maintainer.trim().is_empty() { crate::DEFAULT_MAINTAINER } else { meta.maintainer.trim() };
+    let fallback = crate::default_maintainer();
+    let maint = if meta.maintainer.trim().is_empty() { fallback.as_str() } else { meta.maintainer.trim() };
     let mut footer = Vec::with_capacity(FOOTER_SIZE as usize);
     for (name, size) in FIELDS {
         match (*name, *size) {

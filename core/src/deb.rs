@@ -241,7 +241,7 @@ pub fn control_text(meta: &Metadata, tree: &Tree, o: &DebWriteOpts) -> String {
     c.push_str(&format!("Package: {}\n", version::deb_name(&meta.name)));
     c.push_str(&format!("Version: {}\n", version::deb_version(meta)));
     c.push_str(&format!("Architecture: {}\n", version::deb_arch(&meta.arch)));
-    let maint = if meta.maintainer.trim().is_empty() { crate::DEFAULT_MAINTAINER.to_string() } else { single_line(&meta.maintainer) };
+    let maint = if meta.maintainer.trim().is_empty() { crate::default_maintainer() } else { single_line(&meta.maintainer) };
     c.push_str(&format!("Maintainer: {maint}\n"));
     c.push_str(&format!("Installed-Size: {installed_kb}\n"));
     if !o.depends.is_empty() {

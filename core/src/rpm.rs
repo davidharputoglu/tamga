@@ -79,6 +79,9 @@ pub mod tag {
     pub const CONFLICTNAME: u32 = 1054;
     pub const CONFLICTVERSION: u32 = 1055;
     pub const RPMVERSION: u32 = 1064;
+    pub const CHANGELOGTIME: u32 = 1080;
+    pub const CHANGELOGNAME: u32 = 1081;
+    pub const CHANGELOGTEXT: u32 = 1082;
     pub const PREINPROG: u32 = 1085;
     pub const POSTINPROG: u32 = 1086;
     pub const PREUNPROG: u32 = 1087;
@@ -564,6 +567,15 @@ pub fn write(meta: &Metadata, tree: &Tree, o: &RpmWriteOpts, out: &Path) -> Resu
     let desc = if meta.description.trim().is_empty() { summary.clone() } else { meta.description.clone() };
     h.set(tag::DESCRIPTION, Data::I18n(if desc.is_empty() { name.clone() } else { desc }));
     h.set(tag::BUILDTIME, Data::I32(vec![now]));
+    // Une entrée de journal des modifications : « converti par TAMGA » (rpmlint la demande).
+    {
+        let maint = if meta.maintainer.trim().is_empty() { crate::default_maintainer() } else { meta.maintainer.trim().to_string() };
+        let (v, r) = crate::version::rpm_version(meta);
+        let origin = meta.origin_format.map(|f| f.label().to_string()).unwrap_or_else(|| "?".into());
+        h.set(tag::CHANGELOGTIME, Data::I32(vec![now - now % 86400 + 43200]));
+        h.set(tag::CHANGELOGNAME, Data::StrArr(vec![format!("{maint} - {v}-{r}")]));
+        h.set(tag::CHANGELOGTEXT, Data::StrArr(vec![format!("- Converted from a {origin} package by TAMGA {}", crate::TAMGA_VERSION)]));
+    }
     h.set(tag::BUILDHOST, Data::Str("tamga".into()));
     let total: u64 = tree.total_size();
     h.set(tag::SIZE, Data::I32(vec![total.min(u32::MAX as u64) as u32]));

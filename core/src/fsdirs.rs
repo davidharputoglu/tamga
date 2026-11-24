@@ -173,7 +173,7 @@ pub fn fix_permissions(tree: &mut Tree, family: Family) -> usize {
                 let plain = plain_dirs.iter().any(|d| p.starts_with(d))
                     || plain_ext.iter().any(|x| lower.ends_with(x))
                     || e.config
-                    || (family == Family::Debian && looks_like_shared_lib(&p) && !looks_exec);
+                    || (family == Family::Debian && looks_like_shared_lib(&p));
                 let exec = !plain && (exec_dirs.iter().any(|d| p.starts_with(d)) || looks_exec || e.mode & 0o100 != 0);
                 e.mode = if exec { 0o755 | special } else { 0o644 };
             }
