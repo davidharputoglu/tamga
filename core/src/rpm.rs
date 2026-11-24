@@ -106,6 +106,25 @@ pub mod tag {
 
 const RPMFILE_CONFIG: u32 = 1;
 const RPMFILE_NOREPLACE: u32 = 1 << 4;
+/// %doc et %license (documentation, pages de manuel, licences), comme rpmbuild.
+const RPMFILE_DOC: u32 = 1 << 1;
+const RPMFILE_LICENSE: u32 = 1 << 7;
+
+fn file_flags(path: &str, e: &crate::tree::Entry) -> u32 {
+    if e.config && e.is_file() {
+        return RPMFILE_CONFIG | RPMFILE_NOREPLACE;
+    }
+    if e.is_dir() {
+        return 0;
+    }
+    if path.starts_with("usr/share/licenses/") {
+        RPMFILE_LICENSE
+    } else if ["usr/share/doc/", "usr/share/man/", "usr/share/info/", "usr/share/gtk-doc/"].iter().any(|d| path.starts_with(d)) {
+        RPMFILE_DOC
+    } else {
+        0
+    }
+}
 const RPMFILE_GHOST: u32 = 1 << 6;
 const RPMSENSE_INTERP: u32 = 1 << 8;
 const RPMSENSE_SCRIPT_PRE: u32 = 1 << 9;
@@ -632,7 +651,7 @@ pub fn write(meta: &Metadata, tree: &Tree, o: &RpmWriteOpts, out: &Path) -> Resu
         );
         h.set(
             tag::FILEFLAGS,
-            Data::I32(sorted.iter().map(|(_, e)| if e.config && e.is_file() { RPMFILE_CONFIG | RPMFILE_NOREPLACE } else { 0 }).collect()),
+            Data::I32(sorted.iter().map(|(p, e)| file_flags(p, e)).collect()),
         );
         h.set(tag::FILEUSERNAME, Data::StrArr(sorted.iter().map(|(_, e)| owner_or_root(e.user_name())).collect()));
         h.set(tag::FILEGROUPNAME, Data::StrArr(sorted.iter().map(|(_, e)| owner_or_root(e.group_name())).collect()));

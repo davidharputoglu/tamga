@@ -391,6 +391,22 @@ pub fn convert_with_progress(pkg: &Package, elf: &ElfInfo, opts: &ConvertOptions
         let moved = fsdirs::apply_usrmerge(&mut tree, fam);
         crate::vlog!("conversion", "fusion /usr : {moved} entrées déplacées (bin → usr/bin, lib → usr/lib…)");
     }
+    // Liens de documentation vers un autre paquet (habitude Debian) : cassés ailleurs, on les retire.
+    let dangling: Vec<String> = tree
+        .entries
+        .iter()
+        .filter(|(p, e)| p.starts_with("usr/share/doc/") && matches!(&e.kind, crate::tree::Kind::Symlink(t) if !t.starts_with('/') && t.starts_with("..")))
+        .filter(|(p, e)| {
+            let crate::tree::Kind::Symlink(t) = &e.kind else { return false };
+            let joined = format!("{}/{}", crate::tree::parent(p).unwrap_or(""), t);
+            crate::tree::normalize(&joined).map(|n| tree.get(&n).is_none()).unwrap_or(true)
+        })
+        .map(|(p, _)| p.clone())
+        .collect();
+    for p in &dangling {
+        tree.entries.remove(p);
+        crate::vlog!("conversion", "lien de documentation cassé retiré : /{p}");
+    }
     // Bibliothèques absentes de la cible, rangées dans un dossier privé.
     let applied = bundle::apply(&mut tree, &meta, &bundled)?;
     if opts.fixperms {

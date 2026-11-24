@@ -150,7 +150,8 @@ jobs:
           $T convert paquets/icu-devtools_70.1-2_amd64.deb --to arch --online --test --out out/ 2>&1 | tee log8
           grep "libicuuc.so.70 ←" log8
           grep "namcap" log8 || true
-          pacman -U --noconfirm out/*.pkg.tar.zst
+          # Le conteneur a déjà le paquet « icu » d'Arch (mêmes fichiers) : on le remplace pour le test.
+          pacman -U --noconfirm --overwrite '*' out/*.pkg.tar.zst
           /usr/bin/uconv --version | tee v8
           grep "ICU 70" v8
 

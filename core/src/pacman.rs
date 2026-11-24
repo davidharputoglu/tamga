@@ -120,7 +120,8 @@ pub fn pkginfo_text(meta: &Metadata, tree: &Tree, o: &PacmanWriteOpts, builddate
     s.push_str(&format!("packager = {packager}\n"));
     s.push_str(&format!("size = {}\n", tree.total_size()));
     s.push_str(&format!("arch = {}\n", version::pacman_arch(&meta.arch)));
-    let lic = if meta.license.trim().is_empty() { "custom".to_string() } else { one_line(&meta.license) };
+    // Arch demande des identifiants SPDX : licence inconnue → « LicenseRef-unknown ».
+    let lic = if meta.license.trim().is_empty() || meta.license.trim().eq_ignore_ascii_case("custom") { "LicenseRef-unknown".to_string() } else { one_line(&meta.license) };
     s.push_str(&format!("license = {lic}\n"));
     for d in &o.replaces {
         s.push_str(&format!("replaces = {}\n", dep_str(d)));
